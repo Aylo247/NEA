@@ -1,7 +1,7 @@
 import json
 from datetime import date, time, datetime, timedelta
 
-def Block():
+def Block(): 
     def __init__(self, name, start, end, location = "", notes = "" , is_fixed = ""):
         self.name = name 
         self.start = start
