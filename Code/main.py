@@ -28,4 +28,5 @@ def main():
     persistence_manager.save_data(data_to_save)
 
 if __name__ == "__main__":
-    main()
+    main() 
+    

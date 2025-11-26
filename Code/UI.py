@@ -16,7 +16,16 @@ class ScheduleViewDay(ScheduleView):
         self.day = self.sechdule.day(date)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Schedule View for Today (placeholder)"))
+        layout.addWidget(QLabel(f"Schedule View for {date} (placeholder)"))
+        self.setLayout(layout)
+
+class ScheduleViewWeek(ScheduleView):
+    def __init__(self, schedule, week_start_date):
+        super().__init__(schedule)
+        self.day = self.sechdule.week(week_start_date)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel(f"Schedule View for week commencing {week_start_date} (placeholder)"))
         self.setLayout(layout)
 
 class ToDoListView(QWidget):
@@ -37,9 +46,6 @@ class SettingsView(QWidget):
         layout.addWidget(QLabel("Settings View (placeholder)"))
         self.setLayout(layout)
 
-
-
-
 class MainWindow(QMainWindow):
     def __init__(self, schedule, todo_list, settings, persistence_manager):
         super().__init__()
@@ -55,11 +61,13 @@ class MainWindow(QMainWindow):
         # Stack for switching views (Schedule / To-do / Settings)
         self.stack = QStackedWidget()
 
-        self.schedule_view = ScheduleView(self.schedule)
+        self.schedule_view_day = ScheduleViewDay(self.schedule)
+        self.schedule_view_week = ScheduleViewWeek(self.schedule)
         self.todo_list_view = ToDoListView(self.todo_list)
         self.settings_view = SettingsView(self.settings)
 
-        self.stack.addWidget(self.schedule_view)
+        self.stack.addWidget(self.schedule_view_day)
+        self.stack.addWidget(self.schedule_view_week)
         self.stack.addWidget(self.todo_list_view)
         self.stack.addWidget(self.settings_view)
 
@@ -70,8 +78,11 @@ class MainWindow(QMainWindow):
     def setup_connections(self):
         pass
 
-    def switch_to_schedule(self):
-        self.stack.setCurrentWidget(self.schedule_view)
+    def switch_to_scheduleDay(self):
+        self.stack.setCurrentWidget(self.schedule_view_day)
+
+    def switch_to_scheduleWeek(self):
+        self.stack.setCurrentWidget(self.schedule_view_week)
 
     def switch_to_todo(self):
         self.stack.setCurrentWidget(self.todo_list_view)
