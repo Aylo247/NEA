@@ -62,6 +62,12 @@ class Schedule:
         self.date = date
         self.blocks = []
 
+    def day(self, date):
+        pass
+
+    def week(self, week_start_date):
+        pass
+
     def add_block(self, block):
         pass
 
@@ -107,7 +113,7 @@ class ToDoList:
 class Settings:
     def __init__(self):
         self.theme = "Light"
-        self.start_time = time(8, 0)
+        self.start_time = time(7, 0)
         self.end_time = time(22, 0)
         self.notification_frequency = timedelta(minutes=30)
         self.meal_windows = {"Breakfast": (time(7,0), time(9,0)),
