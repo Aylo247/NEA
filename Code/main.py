@@ -1,4 +1,5 @@
-from classes import PersistenceManager, Schedule, ToDoList, Settings #and UI
+from classes import PersistenceManager, Schedule, ToDoList, Settings 
+from UI import MainWindow
 
 def main():
     # Initialize components
@@ -6,9 +7,10 @@ def main():
     schedule = Schedule(date=None)  # date can be set later
     todo_list = ToDoList()
     settings = Settings()
-    #ui = UI(schedule, todo_list, settings)
+    ui = MainWindow(schedule, todo_list, settings, persistence_manager)
 
-    # Load existing data
+    ui
+
     data = persistence_manager.load_data()
     settings_data = persistence_manager.load_settings()
     if data:
@@ -29,4 +31,3 @@ def main():
 
 if __name__ == "__main__":
     main() 
-    

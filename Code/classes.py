@@ -58,8 +58,8 @@ def task(Block):
         self.end = new_start + self.duration
 
 class Schedule:
-    def __init__(self, date):
-        self.date = date
+    def __init__(self):
+        self.date = datetime.now().date()
         self.blocks = []
 
     def day(self, date):
