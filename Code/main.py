@@ -4,12 +4,11 @@ from UI import MainWindow
 def main():
     # Initialize components
     persistence_manager = PersistenceManager('data.json', 'settings.json')
-    schedule = Schedule(date=None)  # date can be set later
+    schedule = Schedule()
     todo_list = ToDoList()
     settings = Settings()
     ui = MainWindow(schedule, todo_list, settings, persistence_manager)
 
-    ui
 
     data = persistence_manager.load_data()
     settings_data = persistence_manager.load_settings()
@@ -20,14 +19,14 @@ def main():
         settings.preferences = settings_data.get('settings', {})
 
     # Application logic would go here
+    ui.switch_to_scheduleDay()
 
     # Save current state before exiting
-    data_to_save = {
-        'schedule_blocks': schedule.blocks,
-        'todo_tasks': todo_list.tasks,
-        'settings': settings.preferences
+    
+    settings_to_save = {
+        'settings': settings.preferences,
     }
-    persistence_manager.save_data(data_to_save)
+    persistence_manager.save_settings(settings_to_save)
 
 if __name__ == "__main__":
     main() 

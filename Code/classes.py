@@ -2,7 +2,7 @@ import json
 from datetime import date, time, datetime, timedelta
 
 def Block(): 
-    def __init__(self, name, start, end, location = "", notes = "" , is_fixed = ""):
+    def __init__(self, name, start, end, location = None, notes = None , is_fixed = False):
         self.name = name 
         self.start = start
         self.end = end
@@ -166,3 +166,11 @@ class PersistenceManager:
 
     def load_data(self):
         pass
+
+    def save_all(self, schedule, todo_list, settings):
+        data_to_save = {
+        'schedule_blocks': schedule.blocks,
+        'todo_tasks': todo_list.tasks,
+    }
+        self.save_data(data_to_save)
+        self.save_settings(settings)

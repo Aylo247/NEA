@@ -3,30 +3,26 @@ from PyQt6.QtCore import Qt
 
 class ScheduleView(QWidget):
     def __init__(self, schedule):
-        super().__init_()
+        super().__init__()
         self.schedule = schedule
 
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Schedule View (placeholder)"))
-        self.setLayout(layout)
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(QLabel("Schedule View (placeholder)"))
+        self.setLayout(self.layout)
 
 class ScheduleViewDay(ScheduleView):
     def __init__(self, schedule, date):
         super().__init__(schedule)
-        self.day = self.sechdule.day(date)
+        self.day = self.schedule.day(date)
 
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Schedule View for {date} (placeholder)"))
-        self.setLayout(layout)
+        self.layout.addWidget(QLabel(f"Schedule View for {date} (placeholder)"))
 
 class ScheduleViewWeek(ScheduleView):
     def __init__(self, schedule, week_start_date):
         super().__init__(schedule)
-        self.day = self.sechdule.week(week_start_date)
+        self.day = self.schedule.week(week_start_date)
 
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel(f"Schedule View for week commencing {week_start_date} (placeholder)"))
-        self.setLayout(layout)
+        self.layout.addWidget(QLabel(f"Schedule View for week commencing {week_start_date} (placeholder)"))
 
 class ToDoListView(QWidget):
     def __init__(self, todo_list):
