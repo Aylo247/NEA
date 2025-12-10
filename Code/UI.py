@@ -1,5 +1,6 @@
-from PyQt6.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QWidget, QStackedWidget, QVBoxLayout, QLabel
+from PyQt5.QtCore import Qt
+
 
 class ScheduleView(QWidget):
     def __init__(self, schedule):
@@ -51,37 +52,21 @@ class MainWindow(QMainWindow):
         self.settings = settings
         self.persistence = persistence_manager
 
-        self.setWindowTitle("Smart Day Planner")
-        self.setMinimumSize(900, 600)
-
-        # Stack for switching views (Schedule / To-do / Settings)
-        self.stack = QStackedWidget()
-
-        self.schedule_view_day = ScheduleViewDay(self.schedule)
-        self.schedule_view_week = ScheduleViewWeek(self.schedule)
-        self.todo_list_view = ToDoListView(self.todo_list)
-        self.settings_view = SettingsView(self.settings)
-
-        self.stack.addWidget(self.schedule_view_day)
-        self.stack.addWidget(self.schedule_view_week)
-        self.stack.addWidget(self.todo_list_view)
-        self.stack.addWidget(self.settings_view)
-
-        self.setCentralWidget(self.stack)
-
-        self.setup_connections()
 
     def setup_connections(self):
         pass
 
     def switch_to_scheduleDay(self):
-        self.stack.setCurrentWidget(self.schedule_view_day)
+        pass
 
     def switch_to_scheduleWeek(self):
-        self.stack.setCurrentWidget(self.schedule_view_week)
+        pass
 
     def switch_to_todo(self):
-        self.stack.setCurrentWidget(self.todo_list_view)
+        pass
 
     def switch_to_settings(self):
-        self.stack.setCurrentWidget(self.settings_view)
+        pass
+
+    def pop_up_confirm(self):
+        pass
