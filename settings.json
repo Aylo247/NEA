@@ -1,0 +1,28 @@
+{
+    "settings": {
+        "theme": "Dark",
+        "start_time": "08:00:00",
+        "end_time": "22:00:00",
+        "notification_frequency": 1800.0,
+        "meal_windows": {
+            "Breakfast": [
+                "07:00:00",
+                "09:00:00"
+            ],
+            "Lunch": [
+                "12:00:00",
+                "14:00:00"
+            ],
+            "Dinner": [
+                "18:00:00",
+                "20:00:00"
+            ]
+        },
+        "break_durations": {
+            "short": 10.0,
+            "long": 30.0
+        },
+        "history_duration": 7.0,
+        "holiday_ranges": []
+    }
+}

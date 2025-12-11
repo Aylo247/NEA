@@ -1,0 +1,43 @@
+{
+    "schedule": {
+        "name": "Schedule",
+        "blocks": [
+            {
+                "type": "event",
+                "name": "Doctor Appointment",
+                "start": "2025-12-11T10:00:00",
+                "duration": 30.0,
+                "location": "Clinic",
+                "notes": "",
+                "is_fixed": true,
+                "priority": 2,
+                "repeatable": false,
+                "interval": 0
+            },
+            {
+                "type": "task",
+                "name": "Physics Project",
+                "start": "2025-12-12T14:00:00",
+                "duration": 120.0,
+                "location": "",
+                "notes": "Build the prototype",
+                "is_fixed": false,
+                "deadline": null,
+                "is_completed": false,
+                "completed_at": null
+            },
+            {
+                "type": "task",
+                "name": "Study Session",
+                "start": "2025-12-11T14:00:00",
+                "duration": 60.0,
+                "location": "Library",
+                "notes": "",
+                "is_fixed": false,
+                "deadline": null,
+                "is_completed": false,
+                "completed_at": null
+            }
+        ]
+    }
+}
