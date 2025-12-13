@@ -63,6 +63,8 @@ class task(Block):
         self.completed_at = None
 
 #a class to manage custom block templates, allowing users to create, save, load, and instantiate templates
+#note that when in use, the custom block can be treated like a normal event or task block so we dont really
+#need any special methods in the logic of the schedule or when saving the schedule etc.
 class CustomBlock():
     def __init__(self, templates = None):
         self.templates = templates if templates is not None else []

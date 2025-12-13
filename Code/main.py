@@ -1,45 +1,28 @@
 from persitencemanager import PersistenceManager
 from schedule import Schedule
 from settings import Settings, ThemeManager
-from UI import MainWindow
+from UI import MainWindow, SettingsView
 from PyQt5.QtWidgets import QApplication
 import sys
 
 def main():
-    # Initialise core classes
-    persistence_manager = PersistenceManager()
-    schedule = Schedule()
-    settings = Settings()
-
-    # --- Load data BEFORE creating UI ---
-    data = persistence_manager.load_data()
-    settings_data = persistence_manager.load_settings()
-
-    if data:
-        schedule.from_dict(data.get("schedule", {}))
-
-    if settings_data:
-        settings.preferences = settings_data.get('settings', {})
-
-    # --- Create QApplication ---
     app = QApplication(sys.argv)
 
-    # --- Create MainWindow after data is loaded ---
-    ui = MainWindow(schedule, settings, persistence_manager)
+    settings = Settings()
+    persistence = PersistenceManager()
+    thememanager = ThemeManager()
 
-    # ui.switch_to_scheduleDay()
-    ui.show()
+    # Load saved settings if they exist
+    loaded = persistence.load_settings()
+    if loaded:
+        settings.from_dict(loaded)
 
-    # --- Start Qt Event Loop ---
-    result = app.exec()
+    window = SettingsView(settings, persistence, thememanager)
+    window.setWindowTitle("Settings Test")
+    window.resize(400, 300)
+    window.show()
 
-    # --- Save settings before exit ---
-    settings_to_save = {
-        'settings': settings.preferences,
-    }
-    persistence_manager.save_settings(settings_to_save)
-
-    sys.exit(result)
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":

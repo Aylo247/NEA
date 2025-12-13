@@ -89,7 +89,7 @@ class Settings:
         ]
 
 class ThemeManager:
-    """
+    """ 
     Manages application-wide visual themes.
     Loads static theme definitions from a JSON file
     and provides access to the active theme based on user settings.
@@ -124,3 +124,6 @@ class ThemeManager:
         theme = self.get_theme(theme_name)
         return QColor(theme.get(key, fallback))
 
+    def get_font(self, theme_name, fallback="Arial"):
+        theme = self.get_theme(theme_name)
+        return theme.get("font", fallback)

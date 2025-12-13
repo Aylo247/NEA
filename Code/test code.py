@@ -1,5 +1,8 @@
 from datetime import datetime, timedelta, time, date
-from classes import event, task, Schedule, CustomBlock, ToDoList, Settings, PersistenceManager
+from schedule import Schedule
+from blocks import event, task, CustomBlock
+from persitencemanager import PersistenceManager
+from settings import Settings
 
 pm = PersistenceManager()  # initialize persistence manager
 
