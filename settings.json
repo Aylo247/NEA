@@ -1,6 +1,6 @@
 {
     "settings": {
-        "theme": "Dark",
+        "theme": "dark",
         "start_time": "08:00:00",
         "end_time": "22:00:00",
         "notification_frequency": 1800.0,

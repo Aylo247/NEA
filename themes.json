@@ -1,0 +1,14 @@
+{
+  "light": {
+    "background": "#FFFFFF",
+    "hour_line": "#808080",
+    "faint_line": "#A0A0A0",
+    "text": "#808080"
+  },
+  "dark": {
+    "background": "#121212",
+    "hour_line": "#B0B0B0",
+    "faint_line": "#505050",
+    "text": "#B0B0B0"
+  }
+}

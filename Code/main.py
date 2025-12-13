@@ -1,13 +1,14 @@
-from classes import PersistenceManager, Schedule, ToDoList, Settings 
+from persitencemanager import PersistenceManager
+from schedule import Schedule
+from settings import Settings, ThemeManager
 from UI import MainWindow
 from PyQt5.QtWidgets import QApplication
 import sys
 
 def main():
     # Initialise core classes
-    persistence_manager = PersistenceManager('data.json', 'settings.json')
+    persistence_manager = PersistenceManager()
     schedule = Schedule()
-    todo_list = ToDoList()
     settings = Settings()
 
     # --- Load data BEFORE creating UI ---
@@ -16,7 +17,6 @@ def main():
 
     if data:
         schedule.from_dict(data.get("schedule", {}))
-        todo_list.from_dict(data.get("todo", {}))
 
     if settings_data:
         settings.preferences = settings_data.get('settings', {})
@@ -25,7 +25,7 @@ def main():
     app = QApplication(sys.argv)
 
     # --- Create MainWindow after data is loaded ---
-    ui = MainWindow(schedule, todo_list, settings, persistence_manager)
+    ui = MainWindow(schedule, settings, persistence_manager)
 
     # ui.switch_to_scheduleDay()
     ui.show()
