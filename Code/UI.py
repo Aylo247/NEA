@@ -1,12 +1,13 @@
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QScrollArea, QMainWindow, QLabel,
     QGroupBox, QFormLayout, QComboBox, QTimeEdit, QDateEdit, QPushButton,
-    QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout
+    QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout, QSpinBox
 )
-from PyQt5.QtGui import QPainter, QColor, QFont
+from PyQt5.QtGui import QPainter, QColor, QFont, QPalette
 from PyQt5.QtCore import Qt, QTime, QDate
 from settings import ThemeManager
 import sys
+import copy
 from datetime import timedelta
 
 
@@ -95,8 +96,6 @@ class ToDoListView(QWidget):
         layout.addWidget(QLabel("To-Do List View (placeholder)"))
         self.setLayout(layout)
 
-        
-
 class SettingsView(QWidget):
     def __init__(self, settings, persistence_manager, theme_manager):
         super().__init__()
@@ -104,22 +103,18 @@ class SettingsView(QWidget):
         self.settings = settings
         self.persistence = persistence_manager
         self.theme_manager = theme_manager
+        
 
-        # =======================
-        # MAIN LAYOUT
-        # =======================
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
 
-        # =======================
-        # GENERAL SETTINGS
-        # =======================
+
         self.general_group = QGroupBox("general settings")
         self.general_form = QFormLayout()
         self.general_group.setLayout(self.general_form)
         self.main_layout.addWidget(self.general_group)
 
-        # Theme combo box
+        # Theme selection
         self.theme_box = QComboBox()
         self.theme_box.addItems(["light", "dark"])
         self.theme_box.setCurrentText(self.settings.theme)
@@ -145,15 +140,36 @@ class SettingsView(QWidget):
         self.general_form.addRow("weekday start time", self.start_time_edit)
         self.general_form.addRow("weekday end time", self.end_time_edit)
 
-        # Weekend times
-        self.weekend_start_edit = QTimeEdit(QTime(self.settings.start_time.hour, self.settings.start_time.minute))
-        self.weekend_end_edit = QTimeEdit(QTime(self.settings.end_time.hour, self.settings.end_time.minute))
+        self.start_time_edit.timeChanged.connect(self.validate_weekday_times)
+        self.end_time_edit.timeChanged.connect(self.validate_weekday_times)
+
+
+        # weekend times
+        self.weekend_start_edit = QTimeEdit(QTime(self.settings.weekend_start.hour, self.settings.weekend_start.minute))
+        self.weekend_end_edit = QTimeEdit(QTime(self.settings.weekend_end.hour, self.settings.weekend_end.minute))
         self.general_form.addRow("weekend start time", self.weekend_start_edit)
         self.general_form.addRow("weekend end time", self.weekend_end_edit)
 
-        # =======================
-        # MEAL TIMES
-        # =======================
+        self.weekend_start_edit.timeChanged.connect(self.validate_weekend_times)
+        self.weekend_end_edit.timeChanged.connect(self.validate_weekend_times)
+
+        # break duration
+        self.break_duration_spin = QSpinBox()
+        self.break_duration_spin.setRange(5, 120)  # minutes
+        self.break_duration_spin.setSuffix(" min")
+        self.break_duration_spin.setValue(int(self.settings.break_duration.total_seconds() // 60))
+        self.break_duration_spin.valueChanged.connect(self.on_break_duration_changed)
+        self.general_form.addRow("break duration", self.break_duration_spin)
+
+        # notification
+        self.notification_spin = QSpinBox()
+        self.notification_spin.setRange(1, 120)  # minutes
+        self.notification_spin.setSuffix(" min")
+        self.notification_spin.setValue(int(self.settings.notification_frequency.total_seconds() // 60))
+        self.notification_spin.valueChanged.connect(self.on_notification_duration_changed)
+        self.general_form.addRow("notification duration", self.notification_spin)
+
+        # meal times
         self.meal_group = QGroupBox("meal times")
         self.meal_form = QFormLayout()
         self.meal_group.setLayout(self.meal_form)
@@ -163,115 +179,151 @@ class SettingsView(QWidget):
         for meal, (start, end) in self.settings.meal_windows.items():
             start_edit = QTimeEdit(QTime(start.hour, start.minute))
             end_edit = QTimeEdit(QTime(end.hour, end.minute))
+            start_edit.timeChanged.connect(self.validate_meal_times)
+            end_edit.timeChanged.connect(self.validate_meal_times)
             self.meal_form.addRow(f"{meal} start".lower(), start_edit)
             self.meal_form.addRow(f"{meal} end".lower(), end_edit)
             self.meal_edits[meal] = (start_edit, end_edit)
 
-        # =======================
-        # HOLIDAYS
-        # =======================
-        self.holiday_group = QGroupBox("Holidays (max 3)")
+        # holidays
+        self.holiday_group = QGroupBox("holidays (max 3)")
         self.holiday_layout = QVBoxLayout()
         self.holiday_group.setLayout(self.holiday_layout)
         self.main_layout.addWidget(self.holiday_group)
 
         self.holiday_list_widget = QListWidget()
         self.holiday_list_widget.itemDoubleClicked.connect(self.edit_holiday)
+        self.holiday_layout.addWidget(QLabel("double-click a holiday to edit"))
         self.holiday_layout.addWidget(self.holiday_list_widget)
+
+        # snapshot of original state
+        self._snapshot = self._snapshot_state()
+        self._temp_state = copy.deepcopy(self._snapshot)
+
         self.refresh_holiday_list()
 
         btn_layout = QHBoxLayout()
-        self.add_holiday_btn = QPushButton("Add holiday")
-        self.remove_holiday_btn = QPushButton("Remove selected")
+        self.add_holiday_btn = QPushButton("add holiday")
+        self.remove_holiday_btn = QPushButton("remove selected")
         self.add_holiday_btn.clicked.connect(self.add_holiday)
         self.remove_holiday_btn.clicked.connect(self.remove_selected_holiday)
         btn_layout.addWidget(self.add_holiday_btn)
         btn_layout.addWidget(self.remove_holiday_btn)
         self.holiday_layout.addLayout(btn_layout)
 
-        # =======================
-        # SAVE BUTTON
-        # =======================
+        # save button
         self.save_btn = QPushButton("save settings")
         self.save_btn.clicked.connect(self.save_settings)
         self.main_layout.addWidget(self.save_btn)
 
-        # =======================
-        # HEADER FONT
-        # =======================
+        # headder fonts
         self.header_font = QFont()
         self.header_font.setPointSize(16)
         for group in [self.general_group, self.meal_group, self.holiday_group]:
             group.setFont(self.header_font)
 
-        # =======================
-        # SNAPSHOT
-        # =======================
-        self.original_state = self._snapshot()
 
-        # =======================
-        # CONNECT THEME CHANGE
-        # =======================
-        self.theme_box.currentTextChanged.connect(self.apply_theme)
+        self.save_btn.setEnabled(False)
 
-        # Apply theme initially
+        # connect theme change
+        self.theme_box.currentTextChanged.connect(self.on_theme_changed)
+
+        # apply theme initially
         self.apply_theme()
 
-    # =======================
-    # STATE SNAPSHOT
-    # =======================
-    def _snapshot(self):
-        meal_snapshot = {meal: (start.time().toPyTime(), end.time().toPyTime()) 
-                         for meal, (start, end) in self.meal_edits.items()}
-        holidays_snapshot = list(self.settings.holiday_ranges)
+    
+    # state snapshot
+    def _snapshot_state(self):
         return {
             "theme": self.theme_box.currentText(),
-            "start_time": self.start_time_edit.time().toPyTime(),
-            "end_time": self.end_time_edit.time().toPyTime(),
-            "weekend_start": self.weekend_start_edit.time().toPyTime(),
-            "weekend_end": self.weekend_end_edit.time().toPyTime(),
-            "meal_windows": meal_snapshot,
-            "holidays": holidays_snapshot
-        }
+            "weekday_start": self.start_time_edit.time().toString("HH:mm"),
+            "weekday_end": self.end_time_edit.time().toString("HH:mm"),
+            "weekend_start": self.weekend_start_edit.time().toString("HH:mm"),
+            "weekend_end": self.weekend_end_edit.time().toString("HH:mm"),
+            "break_duration": self.break_duration_spin.value(),
+            "notification_frequency": self.notification_spin.value(),
+            "meal_windows": {
+                meal: (
+                    start.time().toString("HH:mm"),
+                    end.time().toString("HH:mm")
+                )
+                for meal, (start, end) in self.meal_edits.items()
+            },
+            "holidays": list(self.settings.holiday_ranges)
+        }  
 
-    # =======================
-    # SAVE LOGIC
-    # =======================
+    # save logic
+    def _is_dirty(self):
+        return self._temp_state != self._snapshot
+    
+    def _update_save_state(self):
+        self.save_btn.setEnabled(self._is_dirty())
+    
     def save_settings(self):
-        current_state = self._snapshot()
+        if not self._is_dirty():
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirm Save",
+            "Do you want to save your settings?",
+            QMessageBox.Yes | QMessageBox.No
+        )
 
-        # No changes → do nothing
-        if current_state == self.original_state:
+        if reply != QMessageBox.Yes:
             return
 
-        # Confirmation popup
-        msg = QMessageBox(self)
-        msg.setWindowTitle("confirm changes")
-        msg.setText("you have unsaved changes. do you want to save them?")
-        msg.setStandardButtons(QMessageBox.Save | QMessageBox.Cancel)
-        msg.setDefaultButton(QMessageBox.Save)
-        response = msg.exec_()
+        self.settings.theme = self._temp_state["theme"]
+        self.settings.start_time = QTime.fromString(self._temp_state["weekday_start"], "HH:mm").toPyTime()
+        self.settings.end_time = QTime.fromString(self._temp_state["weekday_end"], "HH:mm").toPyTime()
+        self.settings.weekend_start = QTime.fromString(self._temp_state["weekend_start"], "HH:mm").toPyTime()
+        self.settings.weekend_end = QTime.fromString(self._temp_state["weekend_end"], "HH:mm").toPyTime()
+        self.settings.break_duration = timedelta(minutes=self._temp_state["break_duration"])
+        self.settings.notification_frequency = timedelta(minutes=self._temp_state["notification_frequency"])
 
-        if response == QMessageBox.Save:
-            self.apply_settings()
-            self.original_state = self._snapshot()
 
-    def apply_settings(self):
-        self.settings.theme = self.theme_box.currentText()
-        self.settings.start_time = self.start_time_edit.time().toPyTime()
-        self.settings.end_time = self.end_time_edit.time().toPyTime()
-        self.settings.weekend_start = self.weekend_start_edit.time().toPyTime()
-        self.settings.weekend_end = self.weekend_end_edit.time().toPyTime()
-        # Meal windows
-        for meal, (start_edit, end_edit) in self.meal_edits.items():
-            self.settings.meal_windows[meal] = (start_edit.time().toPyTime(), end_edit.time().toPyTime())
+        for meal, (s, e) in self._temp_state["meal_windows"].items():
+            self.settings.meal_windows[meal] = (
+                QTime.fromString(s, "HH:mm").toPyTime(),
+                QTime.fromString(e, "HH:mm").toPyTime()
+            )
+
+        self.settings.holiday_ranges = list(self._temp_state["holidays"])
         self.persistence.save_settings(self.settings)
 
-    # =======================
-    # HOLIDAYS
-    # =======================
+        self._snapshot = copy.deepcopy(self._temp_state)
+        self._update_save_state()
+
+    def closeEvent(self, event):
+        if self._is_dirty():
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save before exiting?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+
+            if reply == QMessageBox.Yes:
+                self.save_settings()
+                event.accept()
+            elif reply == QMessageBox.No:
+                event.accept()
+            else:  # Cancel
+                event.ignore()
+        else:
+            event.accept()
+
+    def on_break_duration_changed(self, value):
+        self._temp_state["break_duration"] = value
+        self._update_save_state()
+
+    def on_notification_duration_changed(self, value):
+        self._temp_state["notification_frequency"] = value
+        self._update_save_state()
+            
+    # holidays
     def add_holiday(self):
-        if len(self.settings.holiday_ranges) >= 3:
+        if len(self._temp_state["holidays"]) >= 3:
             QMessageBox.warning(self, "max holidays", "you can only have up to 3 holidays.")
             return
 
@@ -297,24 +349,24 @@ class SettingsView(QWidget):
         start_date = start_cal.selectedDate().toPyDate()
         end_date = end_cal.selectedDate().toPyDate()
 
-        if start_date > end_date:
+        if start_date > end_date: # invalid range
             QMessageBox.warning(self, "invalid range", "start date cannot be after end date.")
             return
 
-        if len(self.settings.holiday_ranges) >= 3:
+        if len(self.settings.holiday_ranges) >= 3: # no more than 3 holidays
             QMessageBox.warning(self, "max holidays", "you can only have up to 3 holidays.")
             return
 
-        self.settings.add_holiday(start_date, end_date)
-        self.refresh_holiday_list()  # update display
-        dialog.accept()
+        self._temp_state["holidays"].append((start_date, end_date))
+        self.refresh_holiday_list()
+        self._update_save_state()
 
-    def edit_holiday(self, item):
+    def edit_holiday(self, item):   
         index = self.holiday_list_widget.row(item)
-        start, end = self.settings.holiday_ranges[index]
+        start, end = self._temp_state["holidays"][index]
 
         dialog = QDialog(self)
-        dialog.setWindowTitle("edit Holiday")
+        dialog.setWindowTitle("edit holiday")
         layout = QVBoxLayout(dialog)
 
         calendar_start = QCalendarWidget()
@@ -342,8 +394,9 @@ class SettingsView(QWidget):
             QMessageBox.warning(self, "invalid range", "start date cannot be after end date.")
             return
 
-        # Update the holiday in settings
-        self.settings.holiday_ranges[index] = (start_date, end_date)
+        # Update the holiday in temp
+        self._temp_state["holidays"][index] = (start_date, end_date)
+        self._update_save_state()
         self.refresh_holiday_list()
         dialog.accept()
 
@@ -353,23 +406,137 @@ class SettingsView(QWidget):
             return
         for item in selected_items:
             index = self.holiday_list_widget.row(item)
-            del self.settings.holiday_ranges[index]
+            del self._temp_state["holidays"][index]
+            self._update_save_state()
         self.refresh_holiday_list()
 
     def refresh_holiday_list(self):
         self.holiday_list_widget.clear()
-        for start, end in self.settings.holiday_ranges:
+        for start, end in self._temp_state["holidays"]:
             self.holiday_list_widget.addItem(f"{start} → {end}")
 
-    # =======================
-    # THEME HANDLING
-    # =======================
+    #time validation
+    def validate_weekday_times(self):
+        start = self.start_time_edit.time()
+        end = self.end_time_edit.time()
+        
+
+        if start >= end or start.addSecs(10 * 60 * 60) > end:
+            t = self._temp_state
+            self.start_time_edit.setTime(QTime.fromString(t["weekday_start"], "HH:mm"))
+            self.end_time_edit.setTime(QTime.fromString(t["weekday_end"], "HH:mm"))
+            return
+        
+        self.enforce_breakfast_rule()
+
+        self._temp_state["weekday_start"] = start.toString("HH:mm")
+        self._temp_state["weekday_end"] = end.toString("HH:mm")
+        self._update_save_state()
+        
+    def validate_weekend_times(self):
+        start = self.weekend_start_edit.time()
+        end = self.weekend_end_edit.time()
+
+        if start >= end or start.addSecs(10 * 60 * 60) > end:
+            t = self._temp_state
+            self.weekend_start_edit.setTime(QTime.fromString(t["weekend_start"], "HH:mm"))
+            self.weekend_end_edit.setTime(QTime.fromString(t["weekend_end"], "HH:mm"))
+            return
+        
+        self.enforce_breakfast_rule()
+
+        self._temp_state["weekend_start"] = start.toString("HH:mm")
+        self._temp_state["weekend_end"] = end.toString("HH:mm")
+        self._update_save_state()
+
+    def enforce_breakfast_rule(self):
+        """Ensure breakfast ends at least 30 mins after day start."""
+        b_start_edit, b_end_edit = self.meal_edits["breakfast"]
+
+        latest_day_start = max(
+            self.start_time_edit.time(),
+            self.weekend_start_edit.time()
+        )
+
+        if b_end_edit.time() < latest_day_start.addSecs(30*60):
+            # reset breakfast to previous valid times
+            ts, te = self._temp_state["meal_windows"]["breakfast"]
+            b_start_edit.setTime(QTime.fromString(ts, "HH:mm"))
+            b_end_edit.setTime(QTime.fromString(te, "HH:mm"))
+            # update temp state just in case
+            self._temp_state["meal_windows"]["breakfast"] = (ts, te)
+            self._update_save_state()
+
+    def validate_meal_times(self):
+        meals = {
+            meal: (start.time(), end.time())
+            for meal, (start, end) in self.meal_edits.items()
+        }
+
+        # start < end
+        for meal, (start, end) in meals.items():
+            if start >= end:
+                ts, te = self._temp_state["meal_windows"][meal]
+                s, e = self.meal_edits[meal]
+                s.setTime(QTime.fromString(ts, "HH:mm"))
+                e.setTime(QTime.fromString(te, "HH:mm"))
+                return
+            
+        #minimum 30 mins
+        for meal, (start, end) in meals.items():
+            if start.addSecs(30 * 60) > end:
+                ts, te = self._temp_state["meal_windows"][meal]
+                s, e = self.meal_edits[meal]
+                s.setTime(QTime.fromString(ts, "HH:mm"))
+                e.setTime(QTime.fromString(te, "HH:mm"))
+                return
+
+        # breakfast rule
+        b_start, b_end = meals["breakfast"]
+        latest_day_start = max(
+            self.start_time_edit.time(),
+            self.weekend_start_edit.time()
+        )
+        if b_end < latest_day_start.addSecs(30 * 60):
+            ts, te = self._temp_state["meal_windows"]["breakfast"]
+            s, e = self.meal_edits["breakfast"]
+            s.setTime(QTime.fromString(ts, "HH:mm"))
+            e.setTime(QTime.fromString(te, "HH:mm"))
+            return
+
+        # no overlap
+        for m1, (s1, e1) in meals.items():
+            for m2, (s2, e2) in meals.items():
+                if m1 != m2 and s1 < e2 and e1 > s2:
+                    ts, te = self._temp_state["meal_windows"][m1]
+                    s, e = self.meal_edits[m1]
+                    s.setTime(QTime.fromString(ts, "HH:mm"))
+                    e.setTime(QTime.fromString(te, "HH:mm"))
+                    return
+
+        # VALID → commit to temp
+        for meal, (start, end) in meals.items():
+            self._temp_state["meal_windows"][meal] = (
+                start.toString("HH:mm"),
+                end.toString("HH:mm")
+            )
+
+        self._update_save_state()
+
+
+
+    # theme application
+    def on_theme_changed(self):
+        self._temp_state["theme"] = self.theme_box.currentText()
+        self.apply_theme()
+        self._update_save_state()
+
     def apply_theme(self):
         theme_name = self.theme_box.currentText().lower()
         t = self.theme_manager.get_theme(theme_name)
 
         if not t:  # fallback if theme not found
-            print(f"Theme '{theme_name}' not found. Using light theme as default.")
+            print(f"theme '{theme_name}' not found. using light theme as default.")
             t = self.theme_manager.get_theme("light")
 
         # Set main window background & default text color
@@ -382,12 +549,12 @@ class SettingsView(QWidget):
                     background-color: {t['groupbox_bg']};
                     border: 1px solid {t['border_color']};
                     border-radius: 8px;
-                    margin-top: 10px;
+                    margin-top: 20px;   /* ensures title doesn't overlap border */
                 }}
                 QGroupBox::title {{
                     subcontrol-origin: margin;
                     subcontrol-position: top left;
-                    padding: 5px;
+                    padding: 0 10px;     /* horizontal padding so it stays inside */
                     color: {t['label_color']};
                 }}
             """)
@@ -409,10 +576,15 @@ class SettingsView(QWidget):
 
         # Labels
         for label in self.findChildren(QLabel):
-            label.setStyleSheet(f"color: {t['label_color']}")
+            label.setStyleSheet(f"""
+                color: {t['label_color']};
+                background-color: transparent;  /* ensures no weird highlight */
+            """)
 
         # QTimeEdit and QDateEdit arrows and text
         for time_edit in self.findChildren(QTimeEdit) + self.findChildren(QDateEdit):
+            time_edit.setDisplayFormat("HH:mm")
+            time_edit.setToolTip("24-hour time (HH:MM)")
             time_edit.setStyleSheet(f"""
                 QTimeEdit, QDateEdit {{
                     background-color: {t['groupbox_bg']};
@@ -423,19 +595,15 @@ class SettingsView(QWidget):
                 }}
                 QTimeEdit::up-button, QTimeEdit::down-button,
                 QDateEdit::up-button, QDateEdit::down-button {{
-                    subcontrol-origin: border;
-                    subcontrol-position: right;
-                    width: 16px;
-                    background-color: {t['button_bg']};
+                    width: 0px;
+                    height: 0px;
+                    border: none;
                 }}
-                QTimeEdit::up-button:hover, QTimeEdit::down-button:hover,
-                QDateEdit::up-button:hover, QDateEdit::down-button:hover {{
-                    background-color: {t['button_hover']};
+                QTimeEdit::section, QDateEdit::section {{
+                    background-color: transparent;
+                    color: {t['label_color']};
                 }}
             """)
-
-
-
 
 class MainWindow(QMainWindow):
     def __init__(self, schedule, settings, persistence_manager):

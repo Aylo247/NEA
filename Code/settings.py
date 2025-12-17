@@ -13,12 +13,13 @@ class Settings:
         self.theme = "light"
         self.start_time = time(7, 0)
         self.end_time = time(22, 0)
+        self.weekend_start = time(9, 0)
+        self.weekend_end = time(23, 0)
         self.notification_frequency = timedelta(minutes=30)
-        self.meal_windows = {"Breakfast": (time(7,0), time(9,0)),
-                             "Lunch": (time(12,0), time(14,0)),
-                             "Dinner": (time(18,0), time(20,0))}
-        self.break_durations = {"short": timedelta(minutes=10),
-                                "long": timedelta(minutes=30)}
+        self.meal_windows = {"breakfast": (time(7,0), time(9,0)),
+                             "lunch": (time(12,0), time(14,0)),
+                             "dinner": (time(18,0), time(20,0))}
+        self.break_duration = timedelta(minutes=30)
         self.history_duration = timedelta(days=7)
         self.holiday_ranges = []  # list of tuples (start_date, end_date)
 
@@ -28,15 +29,14 @@ class Settings:
             "theme": self.theme,
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat(),
-            "notification_frequency": self.notification_frequency.total_seconds(),
+            "weekend_start": self.weekend_start.isoformat(),
+            "weekend_end": self.weekend_end.isoformat(),
+            "notification_frequency": self.notification_frequency.total_seconds() // 60, #in minutes
             "meal_windows": {
                 meal: (start.isoformat(), end.isoformat())
                 for meal, (start, end) in self.meal_windows.items()
             },
-            "break_durations": {
-                name: duration.total_seconds() // 60  # in minutes
-                for name, duration in self.break_durations.items()
-            },
+            "break_duration": self.break_duration.total_seconds() // 60,  # in minutes,
             "history_duration": self.history_duration.total_seconds() // 86400,  # in days
             "holiday_ranges": [
                 (start.isoformat(), end.isoformat())
@@ -49,7 +49,9 @@ class Settings:
         self.theme = data.get("theme", self.theme)
         self.start_time = time.fromisoformat(data.get("start_time", self.start_time.isoformat()))
         self.end_time = time.fromisoformat(data.get("end_time", self.end_time.isoformat()))
-        self.notification_frequency = timedelta(seconds=data.get("notification_frequency", self.notification_frequency.total_seconds()))
+        self.weekend_start = time.fromisoformat(data.get("weekend_start", self.weekend_start.isoformat()))
+        self.weekend_end = time.fromisoformat(data.get("weekend_end", self.weekend_end.isoformat()))
+        self.notification_frequency = timedelta(minutes=data.get("notification_frequency", self.notification_frequency.total_seconds()))
         
         meal_windows_data = data.get("meal_windows", {})
         self.meal_windows = {
@@ -57,11 +59,8 @@ class Settings:
             for meal, (start, end) in meal_windows_data.items()
         }
         
-        break_durations_data = data.get("break_durations", {})
-        self.break_durations = {
-            name: timedelta(minutes=duration)
-            for name, duration in break_durations_data.items()
-        }
+        break_duration_data = data.get("break_duration")
+        self.break_duration = timedelta(minutes=break_duration_data)
 
         self.history_duration = timedelta(days=data.get("history_duration", self.history_duration.total_seconds() // 86400))
         holiday_ranges_data = data.get("holiday_ranges", [])
@@ -71,11 +70,11 @@ class Settings:
         ]
 
     #updates settings and saves them using the PersistenceManager
-    def update(self, PersistenceManager, **kwargs):
+    def update(self, persistenceManager, **kwargs):
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-        PersistenceManager.save_settings(self)
+        persistenceManager.save_settings(self)
 
     #manages holiday ranges
     def add_holiday(self, start_date, end_date):

@@ -16,7 +16,6 @@ def main():
     loaded = persistence.load_settings()
     if loaded:
         settings.from_dict(loaded)
-
     window = SettingsView(settings, persistence, thememanager)
     window.setWindowTitle("Settings Test")
     window.resize(400, 300)

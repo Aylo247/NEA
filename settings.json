@@ -1,27 +1,26 @@
 {
     "settings": {
         "theme": "dark",
-        "start_time": "09:00:00",
+        "start_time": "06:00:00",
         "end_time": "22:00:00",
-        "notification_frequency": 1800.0,
+        "weekend_start": "09:00:00",
+        "weekend_end": "23:00:00",
+        "notification_frequency": 30.0,
         "meal_windows": {
-            "Breakfast": [
-                "07:00:00",
-                "09:00:00"
+            "breakfast": [
+                "07:30:00",
+                "10:00:00"
             ],
-            "Lunch": [
+            "lunch": [
                 "12:00:00",
                 "14:00:00"
             ],
-            "Dinner": [
+            "dinner": [
                 "19:00:00",
                 "20:00:00"
             ]
         },
-        "break_durations": {
-            "short": 10.0,
-            "long": 30.0
-        },
+        "break_duration": 30.0,
         "history_duration": 7.0,
         "holiday_ranges": [
             [
