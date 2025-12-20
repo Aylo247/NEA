@@ -1,17 +1,87 @@
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QScrollArea, QMainWindow, QLabel,
     QGroupBox, QFormLayout, QComboBox, QTimeEdit, QDateEdit, QPushButton,
-    QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout, QSpinBox
+    QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout, QSpinBox,
+    QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QStackedWidget
 )
-from PyQt5.QtGui import QPainter, QColor, QFont, QPalette
-from PyQt5.QtCore import Qt, QTime, QDate
-from settings import ThemeManager
-import sys
+from PyQt5.QtGui import QFont, QPalette
+from PyQt5.QtCore import Qt, QTime, QDate, pyqtSignal
+from blocks import task
 import copy
-from datetime import timedelta
+from datetime import timedelta, datetime
+from utils import IndexStack
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDateTimeEdit, QTextEdit, QTimeEdit, QSpinBox, QDialogButtonBox
+from datetime import datetime, timedelta
 
+class AddTaskDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Add New Task")
+        self.resize(300, 400)
 
+        layout = QVBoxLayout(self)
 
+        # Name (required)
+        layout.addWidget(QLabel("Task Name *"))
+        self.name_input = QLineEdit()
+        layout.addWidget(self.name_input)
+
+        # Duration in minutes (required)
+        layout.addWidget(QLabel("Duration (minutes) *"))
+        self.duration_input = QSpinBox()
+        self.duration_input.setRange(1, 1440)  # 1 minute to 24 hours
+        self.duration_input.setValue(60)
+        layout.addWidget(self.duration_input)
+
+        # Deadline (required)
+        layout.addWidget(QLabel("Deadline *"))
+        self.deadline_input = QDateTimeEdit()
+        self.deadline_input.setCalendarPopup(True)
+        self.deadline_input.setDateTime(datetime.now())
+        layout.addWidget(self.deadline_input)
+
+        # Start time (optional)
+        layout.addWidget(QLabel("Start Time (optional)"))
+        self.start_input = QDateTimeEdit()
+        self.start_input.setCalendarPopup(True)
+        self.start_input.setDateTime(datetime.now())
+        layout.addWidget(self.start_input)
+
+        # Location (optional)
+        layout.addWidget(QLabel("Location (optional)"))
+        self.location_input = QLineEdit()
+        layout.addWidget(self.location_input)
+
+        # Notes (optional)
+        layout.addWidget(QLabel("Notes (optional)"))
+        self.notes_input = QTextEdit()
+        layout.addWidget(self.notes_input)
+
+        # Buttons
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        layout.addWidget(self.buttons)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+    def get_data(self):
+        # Required fields
+        name = self.name_input.text().strip()
+        duration = timedelta(minutes=self.duration_input.value())
+        deadline = self.deadline_input.dateTime().toPyDateTime()
+
+        # Optional fields
+        start = self.start_input.dateTime().toPyDateTime() if self.start_input.dateTime() != self.start_input.minimumDateTime() else None
+        location = self.location_input.text().strip() or None
+        notes = self.notes_input.toPlainText().strip() or None
+
+        return {
+            "name": name,
+            "duration": duration,
+            "deadline": deadline,
+            "start": start,
+            "location": location,
+            "notes": notes
+        }
 
 class ScheduleView(QWidget):
     def __init__(self, schedule):
@@ -22,92 +92,176 @@ class ScheduleView(QWidget):
         self.layout.addWidget(QLabel("Schedule View (placeholder)"))
         self.setLayout(self.layout)
 
-    
-class DayContainer(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-        # constants
-        self.hour_height = 120
-        self.main_line_height = 2
-        self.faint_line_height = 1
-        self.num_faint_lines = 3
-        self.segment_spacing = (self.hour_height - self.main_line_height - (self.faint_line_height * self.num_faint_lines)) / (self.num_faint_lines + 1)
-
-        self.setMinimumHeight(24 * self.hour_height)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setFont(QFont("Arial", 12))
-
-
-        for hour in range(24):
-            y_start = int(hour * self.hour_height)
-
-            # MAIN hour line (dark gray)
-            painter.fillRect(50, y_start, self.width()-50, self.main_line_height, QColor(128,128,128))
-
-            # Faint lines (light gray)
-            current_y = y_start + self.main_line_height
-            for _ in range(self.num_faint_lines):
-                current_y += self.segment_spacing
-                painter.fillRect(50, int(current_y), self.width()-50, self.faint_line_height,  QColor(100,100,100))
-                current_y += self.faint_line_height
-
-            # HOUR NUMBER (aligned next to main line)
-            text_y = int(y_start + self.main_line_height/2 + 4)  # vertically centered with main line
-            painter.setPen(QColor(128,128,128))
-            painter.drawText(5, text_y, f"{hour:02d}:00")
-
-class DayView(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setGeometry(300, 100, 350, 900)
-        self.setWindowTitle("Day View Left Side")
-
-        self.theme_manager = ThemeManager()
-        self.hour_line_colour = self.theme_manager.get_colour(self.theme_manager.theme, "hour_line")
-        self.faint_line_colour = self.theme_manager.get_colour(self.theme_manager.theme, "faint_line")
-
-
-        layout = QVBoxLayout(self)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        layout.addWidget(scroll)
-
-        container = DayContainer()
-        scroll.setWidget(container)
-        self.show()
-
-class ScheduleViewWeek(ScheduleView):
-    def __init__(self, schedule, week_start_date):
-        super().__init__(schedule)
-        self.day = self.schedule.week(week_start_date)
-
-        self.layout.addWidget(QLabel(f"Schedule View for week commencing {week_start_date} (placeholder)"))
-
 class ToDoListView(QWidget):
-    def __init__(self, todo_list):
-        super().__init__()
-        self.todo_list = todo_list
+    open_settings = pyqtSignal()
 
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("To-Do List View (placeholder)"))
-        self.setLayout(layout)
+    
+    def __init__(self, schedule, util, parent=None):
+        super().__init__(parent)
+        self.schedule = schedule
+        self.show_history = False
+        self.sort_state = {}  # column index -> Qt.AscendingOrder / DescendingOrder / disabled
+        self.util = util
+        layout = QVBoxLayout(self)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search tasks by name...")
+        self.search_input.textChanged.connect(self.filter_tasks)
+        layout.insertWidget(0, self.search_input)
+
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Name", "Deadline", "Duration"])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.horizontalHeader().sectionClicked.connect(self.handle_header_click)
+        self.table.setSortingEnabled(True)
+        layout.addWidget(self.table)
+
+        self.toggle_btn = QPushButton("Show History")
+        layout.addWidget(self.toggle_btn)
+        self.toggle_btn.clicked.connect(self.toggle_view)
+
+        self.add_btn = QPushButton("Add Task")
+        layout.addWidget(self.add_btn)
+        self.add_btn.clicked.connect(self.on_add_task)
+
+        settings_btn = QPushButton("Settings")
+        settings_btn.clicked.connect(self.open_settings.emit)
+        layout.addWidget(settings_btn)
+
+        self.util.apply_theme()
+
+        self.refresh()
+
+    def toggle_view(self):
+        self.show_history = not self.show_history
+        self.toggle_btn.setText("Show To-Do" if self.show_history else "Show History")
+        self.refresh()
+
+    def refresh(self):
+        if self.show_history:
+            tasks = [t for t in self.schedule.ToDoList if t.is_completed]
+            self.table.setColumnCount(4)
+            self.table.setHorizontalHeaderLabels(["name", "deadline", "duration", "date completed"])
+        else:
+            tasks = [t for t in self.schedule.ToDoList if not t.is_completed]
+            self.table.setColumnCount(4)
+            self.table.setHorizontalHeaderLabels(["name", "deadline", "duration", "start time"])
+
+        self.table.setRowCount(len(tasks))
+
+        for row, task in enumerate(tasks):
+            # Create QTableWidgetItem for sorting
+            item_name = QTableWidgetItem(task.name)
+            item_name.setData(Qt.UserRole, task.name.lower())  # case-insensitive sort
+            self.table.setItem(row, 0, item_name)
+
+            # Add the checkbox as cell widget
+            checkbox = QCheckBox(task.name)
+            checkbox.setChecked(task.is_completed)
+            checkbox.stateChanged.connect(lambda state, t=task: self.on_checkbox_changed(state, t))
+            self.table.setCellWidget(row, 0, checkbox)
+
+            # Deadline
+            deadline_text = task.deadline.strftime("%d/%m/%Y %H:%M") if task.deadline else "-"
+            self.table.setItem(row, 1, QTableWidgetItem(deadline_text))
+
+            # Duration in hours/minutes
+            hours = task.duration.total_seconds() // 3600
+            minutes = (task.duration.total_seconds() % 3600) // 60
+            duration_text = f"{int(hours)}h {int(minutes)}m"
+            self.table.setItem(row, 2, QTableWidgetItem(duration_text))
+
+            # Date Completed (only for history)
+            if self.show_history:
+                completed_str = task.completed_at.strftime("%d/%m/%Y %H:%M") if task.completed_at else "-"
+                self.table.setItem(row, 3, QTableWidgetItem(completed_str))
+            else:
+                start_str = task.start.strftime("%d/%m/%Y %H:%M")
+                self.table.setItem(row, 3, QTableWidgetItem(start_str))
+
+        
+        self.util.apply_theme()
+
+    def filter_tasks(self, text):
+        text = text.lower()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)  # Name column
+            if text in item.text().lower():
+                self.table.setRowHidden(row, False)
+            else:
+                self.table.setRowHidden(row, True)
+
+    def on_checkbox_changed(self, state, task):
+        if state == Qt.Checked:
+            self.schedule.mark_complete(task)
+        else:
+            self.schedule.mark_incomplete(task)
+        self.refresh()
+
+    def handle_header_click(self, col):
+        state = self.sort_state.get(col, 0)
+
+        if state == 0:
+            # Ascending
+            self.table.setSortingEnabled(True)
+            self.table.sortItems(col, Qt.AscendingOrder)
+            self.sort_state[col] = 1
+
+        elif state == 1:
+            # Descending
+            self.table.sortItems(col, Qt.DescendingOrder)
+            self.sort_state[col] = 2
+
+        else:
+            # Disabled → restore original order
+            self.table.setSortingEnabled(False)
+
+            header = self.table.horizontalHeader()
+            header.setSortIndicator(-1, Qt.AscendingOrder)
+            header.setSortIndicatorShown(False)
+
+            self.refresh()
+
+            self.table.setSortingEnabled(True)
+            header.setSortIndicatorShown(True)
+
+            self.sort_state[col] = 0
+
+        # Reset all other columns
+        for c in list(self.sort_state.keys()):
+            if c != col:
+                self.sort_state[c] = 0
+
+    def on_add_task(self):
+        dialog = AddTaskDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            if not data["name"]:  # enforce name
+                return
+            new_task = task(
+                name=data["name"],
+                start=data["start"],
+                duration=data["duration"],
+                deadline=data["deadline"],
+                location=data["location"],
+                notes=data["notes"]
+            )
+            self.schedule.add_block(new_task)
+            self.refresh()
 
 class SettingsView(QWidget):
-    def __init__(self, settings, persistence_manager, theme_manager):
+    back = pyqtSignal()
+
+    def __init__(self, settings, persistence_manager, util):
         super().__init__()
 
         self.settings = settings
         self.persistence = persistence_manager
-        self.theme_manager = theme_manager
-        
+        self.util = util        
 
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
-
 
         self.general_group = QGroupBox("general settings")
         self.general_form = QFormLayout()
@@ -120,18 +274,6 @@ class SettingsView(QWidget):
         self.theme_box.setCurrentText(self.settings.theme)
         self.theme_box.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self.theme_box.setMinimumWidth(100)
-        self.theme_box.setStyleSheet(f"""
-                        QComboBox {{
-                            background-color: {self.theme_manager.get_colour(self.settings.theme, "groupbox_bg")};
-                            color: {self.theme_manager.get_colour(self.settings.theme, "label_color")};
-                            padding: 2px 4px;
-                        }}
-                        QComboBox QAbstractItemView {{
-                            background-color: {self.theme_manager.get_colour(self.settings.theme, "groupbox_bg")};
-                            color: {self.theme_manager.get_colour(self.settings.theme, "label_color")};
-                            selection-background-color: {self.theme_manager.get_colour(self.settings.theme, "button_bg")   };
-                        }}
-                    """)
         self.general_form.addRow("theme", self.theme_box)
 
         # Weekday times
@@ -225,11 +367,15 @@ class SettingsView(QWidget):
 
         self.save_btn.setEnabled(False)
 
+        self.back_btn = QPushButton("back")
+        self.back_btn.clicked.connect(self.back.emit)
+        self.main_layout.addWidget(self.back_btn)
+
         # connect theme change
         self.theme_box.currentTextChanged.connect(self.on_theme_changed)
 
         # apply theme initially
-        self.apply_theme()
+        self.util.apply_theme()
 
     
     # state snapshot
@@ -429,6 +575,9 @@ class SettingsView(QWidget):
         
         self.enforce_breakfast_rule()
 
+        start = self.util.round_to_5(start)
+        end = self.util.round_to_5(end)
+
         self._temp_state["weekday_start"] = start.toString("HH:mm")
         self._temp_state["weekday_end"] = end.toString("HH:mm")
         self._update_save_state()
@@ -444,6 +593,9 @@ class SettingsView(QWidget):
             return
         
         self.enforce_breakfast_rule()
+
+        start = self.util.round_to_5(start)
+        end = self.util.round_to_5(end)
 
         self._temp_state["weekend_start"] = start.toString("HH:mm")
         self._temp_state["weekend_end"] = end.toString("HH:mm")
@@ -517,118 +669,67 @@ class SettingsView(QWidget):
         # VALID → commit to temp
         for meal, (start, end) in meals.items():
             self._temp_state["meal_windows"][meal] = (
-                start.toString("HH:mm"),
-                end.toString("HH:mm")
+                self.util.round_to_5(start).toString("HH:mm"),
+                self.util.round_to_5(end).toString("HH:mm")
             )
 
         self._update_save_state()
 
-
-
     # theme application
     def on_theme_changed(self):
         self._temp_state["theme"] = self.theme_box.currentText()
-        self.apply_theme()
+        self.util.apply_theme(self._temp_state["theme"])
         self._update_save_state()
 
-    def apply_theme(self):
-        theme_name = self.theme_box.currentText().lower()
-        t = self.theme_manager.get_theme(theme_name)
-
-        if not t:  # fallback if theme not found
-            print(f"theme '{theme_name}' not found. using light theme as default.")
-            t = self.theme_manager.get_theme("light")
-
-        # Set main window background & default text color
-        self.setStyleSheet(f"background-color: {t['background']}; color: {t['label_color']};")
-
-        # Group boxes
-        for groupbox in [self.general_group, self.meal_group, self.holiday_group]:
-            groupbox.setStyleSheet(f"""
-                QGroupBox {{
-                    background-color: {t['groupbox_bg']};
-                    border: 1px solid {t['border_color']};
-                    border-radius: 8px;
-                    margin-top: 20px;   /* ensures title doesn't overlap border */
-                }}
-                QGroupBox::title {{
-                    subcontrol-origin: margin;
-                    subcontrol-position: top left;
-                    padding: 0 10px;     /* horizontal padding so it stays inside */
-                    color: {t['label_color']};
-                }}
-            """)
-
-        # Buttons
-        for btn in [self.add_holiday_btn, self.remove_holiday_btn, self.save_btn]:
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    border-radius: 8px;
-                    padding: 6px 12px;
-                    background-color: {t['button_bg']};
-                    color: {t['button_fg']};
-                    border: 1px solid {t['border_color']};
-                }}
-                QPushButton:hover {{
-                    background-color: {t['button_hover']};
-                }}
-            """)
-
-        # Labels
-        for label in self.findChildren(QLabel):
-            label.setStyleSheet(f"""
-                color: {t['label_color']};
-                background-color: transparent;  /* ensures no weird highlight */
-            """)
-
-        # QTimeEdit and QDateEdit arrows and text
-        for time_edit in self.findChildren(QTimeEdit) + self.findChildren(QDateEdit):
-            time_edit.setDisplayFormat("HH:mm")
-            time_edit.setToolTip("24-hour time (HH:MM)")
-            time_edit.setStyleSheet(f"""
-                QTimeEdit, QDateEdit {{
-                    background-color: {t['groupbox_bg']};
-                    color: {t['label_color']};
-                    border: 1px solid {t['border_color']};
-                    border-radius: 4px;
-                    padding: 2px;
-                }}
-                QTimeEdit::up-button, QTimeEdit::down-button,
-                QDateEdit::up-button, QDateEdit::down-button {{
-                    width: 0px;
-                    height: 0px;
-                    border: none;
-                }}
-                QTimeEdit::section, QDateEdit::section {{
-                    background-color: transparent;
-                    color: {t['label_color']};
-                }}
-            """)
 
 class MainWindow(QMainWindow):
-    def __init__(self, schedule, settings, persistence_manager):
+    def __init__(self, schedule, settings, persistence_manager, util):
         super().__init__()
-
+        self.util = util
         self.schedule = schedule
         self.settings = settings
         self.persistence = persistence_manager
 
 
-    def setup_connections(self):
-        pass
+        self.index_stack = IndexStack()
+        self.current_index = 0
 
-    def switch_to_scheduleDay(self):
-        pass
+        # Central widget
+        self.central = QWidget()
+        self.setCentralWidget(self.central)
 
-    def switch_to_scheduleWeek(self):
-        pass
+        self.main_layout = QVBoxLayout(self.central)
+        self.main_layout.setContentsMargins(12, 12, 12, 12)
+        self.main_layout.setSpacing(12)
 
-    def switch_to_todo(self):
-        pass
+        # Stack for screens
+        self.stack = QStackedWidget()
+        self.main_layout.addWidget(self.stack)
 
-    def switch_to_settings(self):
-        pass
+        # Screens
+        self.todo_view = ToDoListView(self.schedule, self.util)
+        self.settings_view = SettingsView(self.settings, self.persistence, self.util)
 
-    def pop_up_confirm(self):
-        pass
+        self.stack.addWidget(self.todo_view)
+        self.stack.addWidget(self.settings_view)
 
+        # Navigation
+        self.todo_view.open_settings.connect(lambda: self.switch_to(1))
+        self.settings_view.back.connect(lambda: self.switch_back())
+
+
+        # Apply themes
+        self.util.apply_theme()
+
+    def switch_to(self, index):
+        if index != self.current_index:
+            self.index_stack.add_item(self.current_index)
+        self.stack.setCurrentIndex(index)
+
+
+    def switch_back(self):
+        popped = self.index_stack.pop_item()
+        if popped is None:
+            QMessageBox.warning(self, "oopsie woopsie", "cannot go back anymore")
+        else:
+            self.stack.setCurrentIndex(popped)

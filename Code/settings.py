@@ -113,7 +113,49 @@ class ThemeManager:
         if not theme_name:
             return {}
 
-        return self.themes.get(theme_name.lower(), {})
+        t = self.themes.get(theme_name.lower(), {})
+
+        return self.theme_to_qss(t)
+    
+    def theme_to_qss(self, theme):
+        return f"""
+        * {{
+            font-family: "{theme['font']}";
+        }}
+
+        QMainWindow {{
+            background-color: {theme['window_bg']};
+        }}
+
+        QWidget {{
+            background-color: {theme['background']};
+            color: {theme['label_color']};
+        }}
+
+        QGroupBox {{
+            background-color: {theme['groupbox_bg']};
+            border: 1px solid {theme['border_color']};
+            border-radius: 6px;
+            margin-top: 6px;
+        }}
+
+        QLabel {{
+            color: {theme['label_color']};
+        }}
+
+        QPushButton {{
+            background-color: {theme['button_bg']};
+            color: {theme['button_fg']};
+            border: 1px solid {theme['border_color']};
+            border-radius: 6px;
+            padding: 6px 10px;
+        }}
+
+        QPushButton:hover {{
+            background-color: {theme['button_hover']};
+        }}
+        """
+
 
     def get_colour(self, theme_name, key, fallback="#000000"):
         """

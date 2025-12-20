@@ -1,6 +1,7 @@
 {
   "light": {
     "font": "Helvetica Neue",
+    "window_bg": "#E6D8C2",
     "background": "#F3E8D7",
     "groupbox_bg": "#EADFC6",
     "label_color": "#3E3228",
@@ -11,6 +12,7 @@
   },
   "dark": {
     "font": "Helvetica Neue",
+    "window_bg": "#1F120D",
     "background": "#291610",
     "groupbox_bg": "#3A2214",
     "label_color": "#E0D0C0",
