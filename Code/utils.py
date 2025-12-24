@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QMessageBox, QLabel, QGroupBox, QPushButton, QTimeEdit, QDateEdit, QComboBox, QApplication
+from PyQt5.QtWidgets import (
+    QMessageBox, QPushButton, QHBoxLayout, QWidget,
+    QApplication)
 from PyQt5.QtCore import QTime
 from datetime import datetime, timedelta, time
 
@@ -61,3 +63,31 @@ class GUIUtils():
             t = self.tm.get_theme("light")
         app = QApplication.instance()
         app.setStyleSheet(t)
+        
+    @staticmethod
+    def create_top_bar(*,
+                       show_back=False,
+                       show_settings=False,
+                       show_todo=False):
+        bar = QWidget()
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(12, 12, 12, 6)
+
+        buttons = {}
+
+        if show_back:
+            buttons["back"] = QPushButton("← Back")
+            layout.addWidget(buttons["back"])
+
+        layout.addStretch()
+
+        if show_todo:
+            buttons["todo"] = QPushButton("To-Do")
+            layout.addWidget(buttons["todo"])
+
+        if show_settings:
+            buttons["settings"] = QPushButton("⚙")
+            layout.addWidget(buttons["settings"])
+
+        return bar, buttons
+

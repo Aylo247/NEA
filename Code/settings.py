@@ -140,6 +140,7 @@ class ThemeManager:
         }}
 
         QLabel {{
+      
             color: {theme['label_color']};
         }}
 

@@ -8,17 +8,19 @@
     "button_bg": "#D8A86E",
     "button_fg": "#FFFFFF",
     "button_hover": "#D2A05C",
-    "border_color": "#D6C6B3"
+    "border_color": "#D6C6B3",
+    "calendar_grid": "#CBBDAA"   
   },
   "dark": {
     "font": "Helvetica Neue",
     "window_bg": "#1F120D",
     "background": "#291610",
     "groupbox_bg": "#3A2214",
-    "label_color": "#E0D0C0",
+    "label_color": "#3E3228",
     "button_bg": "#52331F",
     "button_fg": "#FFFFFF",
     "button_hover": "#6C492E",
-    "border_color": "#4A331F"
+    "border_color": "#4A331F",
+    "calendar_grid": "#5A3F2B"  
   }
 }

@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QScrollArea, QMainWindow, QLabel,
     QGroupBox, QFormLayout, QComboBox, QTimeEdit, QDateEdit, QPushButton,
     QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout, QSpinBox,
-    QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QStackedWidget
+    QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, QStackedWidget,
+    QAbstractItemView, QSizePolicy
 )
 from PyQt5.QtGui import QFont, QPalette
 from PyQt5.QtCore import Qt, QTime, QDate, pyqtSignal
@@ -11,7 +12,9 @@ import copy
 from datetime import timedelta, datetime
 from utils import IndexStack
 from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QDateTimeEdit, QTextEdit, QTimeEdit, QSpinBox, QDialogButtonBox
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import calendar
+from collections import defaultdict
 
 class AddTaskDialog(QDialog):
     def __init__(self, parent=None):
@@ -84,6 +87,7 @@ class AddTaskDialog(QDialog):
         }
 
 class ScheduleView(QWidget):
+
     def __init__(self, schedule):
         super().__init__()
         self.schedule = schedule
@@ -92,8 +96,190 @@ class ScheduleView(QWidget):
         self.layout.addWidget(QLabel("Schedule View (placeholder)"))
         self.setLayout(self.layout)
 
+class DayView(QWidget):
+    back = pyqtSignal()
+
+    def __init__(self):
+        super().__init__()    
+
+        self.main_layout = QVBoxLayout()
+        self.setLayout(self.main_layout)
+        self.back_btn = QPushButton("back")
+        self.back_btn.clicked.connect(self.back.emit)
+        self.main_layout.addWidget(self.back_btn)
+
+class MonthView(QWidget):
+    open_settings = pyqtSignal()
+    open_todo = pyqtSignal()
+    open_day = pyqtSignal(object)
+    back = pyqtSignal()
+
+    def __init__(self, schedule, util):
+        """
+        schedule: your Schedule object containing tasks
+        util: your utility object (for theme)
+        """
+        super().__init__()
+        self.schedule = schedule
+        self.util = util
+
+        self.current_date = date.today()
+        self.current_year = self.current_date.year
+        self.current_month = self.current_date.month
+
+        # Main layout
+        main_layout = QVBoxLayout(self)
+
+        top_bar, buttons = self.util.create_top_bar(
+            show_back=True,
+            show_todo=True,
+            show_settings=True
+        )
+
+        buttons["todo"].clicked.connect(self.open_todo.emit)
+        buttons["settings"].clicked.connect(self.open_settings.emit)
+        buttons["back"].clicked.connect(self.back.emit)
+
+        main_layout.addWidget(top_bar)
+
+        # Top header: Month name and navigation
+        header_layout = QHBoxLayout()
+        self.prev_btn = QPushButton("<")
+        self.next_btn = QPushButton(">")
+        self.month_label = QLabel()
+        self.month_label.setAlignment(Qt.AlignCenter)
+        header_layout.addWidget(self.prev_btn)
+        header_layout.addWidget(self.month_label)
+        header_layout.addWidget(self.next_btn)
+        main_layout.addLayout(header_layout)
+
+        self.prev_btn.clicked.connect(lambda: self.change_month(-1))
+        self.next_btn.clicked.connect(lambda: self.change_month(1))
+
+        # Calendar grid
+        self.calendar_table = QTableWidget(6, 7)
+        days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+        self.calendar_table.setHorizontalHeaderLabels(days)
+        self.calendar_table.horizontalHeader().setVisible(True)
+
+        self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        self.calendar_table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
+        
+        self.calendar_table.verticalHeader().setVisible(False)
+        
+        self.calendar_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.calendar_table.setSelectionMode(QAbstractItemView.NoSelection)
+        self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # Let the widget itself expand
+        self.calendar_table.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Expanding
+)
+        main_layout.addWidget(self.calendar_table)
+
+        self.calendar_table.cellClicked.connect(self.on_cell_clicked)
+
+        self.refresh_month_view()
+        self.util.apply_theme()
+
+    def refresh_month_view(self):
+        """Builds the 6-week calendar for the current month"""
+        self.month_label.setText(f"{calendar.month_name[self.current_month].lower()} {self.current_year}")
+
+        # Compute first day
+        month_start = date(self.current_year, self.current_month, 1)
+        display_start = month_start
+        while display_start.strftime("%A") != "Monday":
+            display_start -= timedelta(days=1)
+
+        # Group tasks by day
+        month_blocks = self.schedule.month(month_start)
+        tasks_by_day = defaultdict(list)
+        for block in month_blocks:
+            tasks_by_day[block.start.day].append(block)
+
+        # Get grid color from theme
+        theme_name = getattr(self.util.settings, "theme", "light")
+        grid_color = self.util.tm.themes.get(theme_name, {}).get("calendar_grid", "#AAAAAA")
+
+        # Fill 6x7 grid
+        for week in range(6):
+            for day_col in range(7):
+                cell_widget = QWidget()
+                cell_layout = QVBoxLayout(cell_widget)
+                cell_layout.setContentsMargins(0, 0, 0, 0)
+                cell_layout.setSpacing(0)
+
+                cell_date = display_start + timedelta(days=week*7 + day_col)
+                day_number = cell_date.day
+                is_current_month = (cell_date.month == self.current_month)
+
+                # Day number
+                day_label = QLabel(str(day_number))
+                day_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+                day_label.setStyleSheet("font-weight: bold;" if is_current_month else "color: #AAA;")
+                cell_layout.addWidget(day_label, alignment=Qt.AlignTop | Qt.AlignLeft)
+
+                # Tasks
+                if is_current_month and day_number in tasks_by_day:
+                    day_tasks = tasks_by_day[day_number]
+                    day_tasks.sort(key=lambda t: t.duration.total_seconds(), reverse=True)
+                    for task in day_tasks[:3]:
+                        task_label = QLabel(task.name)
+                        task_label.setStyleSheet("font-size: 10px;")
+                        task_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+                        cell_layout.addWidget(task_label)
+                
+                cell_layout.addStretch()
+
+                # Store date info
+                cell_widget.setProperty("is_current_month", is_current_month)
+                if is_current_month:
+                    cell_widget.setProperty("date", cell_date)
+
+                # Apply grid borders directly here
+                cell_widget.setStyleSheet(f"""
+                    QWidget {{
+                        border-top: 1px solid {grid_color};
+                        border-left: 1px solid {grid_color};
+                        border-bottom: 1px solid {grid_color};
+                        border-right: 1px solid {grid_color};
+                    }}
+                """)
+
+                self.calendar_table.setCellWidget(week, day_col, cell_widget)
+
+
+    def change_month(self, delta):
+        """Change the current month by delta (+1 or -1)"""
+        new_month = self.current_month + delta
+        new_year = self.current_year
+        if new_month < 1:
+            new_month = 12
+            new_year -= 1
+        elif new_month > 12:
+            new_month = 1
+            new_year += 1
+        self.current_month = new_month
+        self.current_year = new_year
+        self.refresh_month_view()
+
+    def on_cell_clicked(self, row, col):
+        cell = self.calendar_table.cellWidget(row, col)
+        if cell and cell.property("is_current_month"):
+            day_date = cell.property("date")
+            if day_date:
+                self.open_day.emit(day_date)
+
+
 class ToDoListView(QWidget):
     open_settings = pyqtSignal()
+    back = pyqtSignal()
 
     
     def __init__(self, schedule, util, parent=None):
@@ -103,31 +289,38 @@ class ToDoListView(QWidget):
         self.sort_state = {}  # column index -> Qt.AscendingOrder / DescendingOrder / disabled
         self.util = util
         layout = QVBoxLayout(self)
+        
+        top_bar, buttons = self.util.create_top_bar(
+            show_back=True,
+            show_settings=True
+        )
+
+        buttons["back"].clicked.connect(self.back.emit)
+        buttons["settings"].clicked.connect(self.open_settings.emit)
+
+        layout.addWidget(top_bar)
+
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search tasks by name...")
+        self.search_input.setPlaceholderText("search tasks by name...")
         self.search_input.textChanged.connect(self.filter_tasks)
-        layout.insertWidget(0, self.search_input)
+        layout.addWidget(self.search_input)
 
         self.table = QTableWidget()
         self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Name", "Deadline", "Duration"])
+        self.table.setHorizontalHeaderLabels(["name", "deadline", "duration"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.horizontalHeader().sectionClicked.connect(self.handle_header_click)
         self.table.setSortingEnabled(True)
         layout.addWidget(self.table)
 
-        self.toggle_btn = QPushButton("Show History")
+        self.toggle_btn = QPushButton("show history")
         layout.addWidget(self.toggle_btn)
         self.toggle_btn.clicked.connect(self.toggle_view)
 
-        self.add_btn = QPushButton("Add Task")
+        self.add_btn = QPushButton("add task")
         layout.addWidget(self.add_btn)
         self.add_btn.clicked.connect(self.on_add_task)
-
-        settings_btn = QPushButton("Settings")
-        settings_btn.clicked.connect(self.open_settings.emit)
-        layout.addWidget(settings_btn)
 
         self.util.apply_theme()
 
@@ -135,7 +328,7 @@ class ToDoListView(QWidget):
 
     def toggle_view(self):
         self.show_history = not self.show_history
-        self.toggle_btn.setText("Show To-Do" if self.show_history else "Show History")
+        self.toggle_btn.setText("show to-do" if self.show_history else "show history")
         self.refresh()
 
     def refresh(self):
@@ -263,6 +456,15 @@ class SettingsView(QWidget):
         self.main_layout = QVBoxLayout()
         self.setLayout(self.main_layout)
 
+        top_bar, buttons = self.util.create_top_bar(
+            show_back=True
+        )
+
+        buttons["back"].clicked.connect(self.on_back_clicked)
+
+        self.main_layout.addWidget(top_bar)
+
+
         self.general_group = QGroupBox("general settings")
         self.general_form = QFormLayout()
         self.general_group.setLayout(self.general_form)
@@ -330,20 +532,17 @@ class SettingsView(QWidget):
         # holidays
         self.holiday_group = QGroupBox("holidays (max 3)")
         self.holiday_layout = QVBoxLayout()
+        self.holiday_layout.setContentsMargins(6, 20, 6, 6)  # top margin ensures title is visible
+        self.holiday_layout.addSpacing(6)
         self.holiday_group.setLayout(self.holiday_layout)
         self.main_layout.addWidget(self.holiday_group)
 
+        # Holiday list
         self.holiday_list_widget = QListWidget()
         self.holiday_list_widget.itemDoubleClicked.connect(self.edit_holiday)
-        self.holiday_layout.addWidget(QLabel("double-click a holiday to edit"))
         self.holiday_layout.addWidget(self.holiday_list_widget)
 
-        # snapshot of original state
-        self._snapshot = self._snapshot_state()
-        self._temp_state = copy.deepcopy(self._snapshot)
-
-        self.refresh_holiday_list()
-
+        # Buttons
         btn_layout = QHBoxLayout()
         self.add_holiday_btn = QPushButton("add holiday")
         self.remove_holiday_btn = QPushButton("remove selected")
@@ -352,6 +551,14 @@ class SettingsView(QWidget):
         btn_layout.addWidget(self.add_holiday_btn)
         btn_layout.addWidget(self.remove_holiday_btn)
         self.holiday_layout.addLayout(btn_layout)
+
+        # Snapshot
+        self._snapshot = self._snapshot_state()
+        self._temp_state = copy.deepcopy(self._snapshot)
+
+        self.refresh_holiday_list()
+
+
 
         # save button
         self.save_btn = QPushButton("save settings")
@@ -366,11 +573,6 @@ class SettingsView(QWidget):
 
 
         self.save_btn.setEnabled(False)
-
-        self.back_btn = QPushButton("back")
-        self.back_btn.clicked.connect(self.back.emit)
-        self.main_layout.addWidget(self.back_btn)
-
         # connect theme change
         self.theme_box.currentTextChanged.connect(self.on_theme_changed)
 
@@ -405,20 +607,22 @@ class SettingsView(QWidget):
     def _update_save_state(self):
         self.save_btn.setEnabled(self._is_dirty())
     
-    def save_settings(self):
+    def save_settings(self, skip_confirmation=False):
         if not self._is_dirty():
             return
-        
-        reply = QMessageBox.question(
-            self,
-            "Confirm Save",
-            "Do you want to save your settings?",
-            QMessageBox.Yes | QMessageBox.No
-        )
 
-        if reply != QMessageBox.Yes:
-            return
+        if not skip_confirmation:
+            reply = QMessageBox.question(
+                self,
+                "Confirm Save",
+                "Do you want to save your settings?",
+                QMessageBox.Yes | QMessageBox.No
+            )
 
+            if reply != QMessageBox.Yes:
+                return
+
+        # actually save
         self.settings.theme = self._temp_state["theme"]
         self.settings.start_time = QTime.fromString(self._temp_state["weekday_start"], "HH:mm").toPyTime()
         self.settings.end_time = QTime.fromString(self._temp_state["weekday_end"], "HH:mm").toPyTime()
@@ -426,7 +630,6 @@ class SettingsView(QWidget):
         self.settings.weekend_end = QTime.fromString(self._temp_state["weekend_end"], "HH:mm").toPyTime()
         self.settings.break_duration = timedelta(minutes=self._temp_state["break_duration"])
         self.settings.notification_frequency = timedelta(minutes=self._temp_state["notification_frequency"])
-
 
         for meal, (s, e) in self._temp_state["meal_windows"].items():
             self.settings.meal_windows[meal] = (
@@ -444,13 +647,13 @@ class SettingsView(QWidget):
         if self._is_dirty():
             reply = QMessageBox.question(
                 self,
-                "Unsaved Changes",
-                "You have unsaved changes. Do you want to save before exiting?",
+                "unsaved changes",
+                "you have unsaved changes. do you want to save before exiting?",
                 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
             )
 
             if reply == QMessageBox.Yes:
-                self.save_settings()
+                self.save_settings(True)
                 event.accept()
             elif reply == QMessageBox.No:
                 event.accept()
@@ -466,7 +669,26 @@ class SettingsView(QWidget):
     def on_notification_duration_changed(self, value):
         self._temp_state["notification_frequency"] = value
         self._update_save_state()
-            
+ 
+    def on_back_clicked(self):
+        if self._is_dirty():
+            reply = QMessageBox.question(
+                self,
+                "unsaved changes",
+                "you have unsaved changes. do you want to save before going back?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            )
+
+            if reply == QMessageBox.Yes:
+                self.save_settings(True)
+                self.back.emit()
+            elif reply == QMessageBox.No:
+                self.back.emit()
+            else:  # Cancel
+                pass  # do nothing, stay on settings
+        else:
+            self.back.emit()
+        
     # holidays
     def add_holiday(self):
         if len(self._temp_state["holidays"]) >= 3:
@@ -709,13 +931,24 @@ class MainWindow(QMainWindow):
         # Screens
         self.todo_view = ToDoListView(self.schedule, self.util)
         self.settings_view = SettingsView(self.settings, self.persistence, self.util)
+        self.month_view = MonthView(self.schedule, self.util)
+        self.day_view = DayView()
 
-        self.stack.addWidget(self.todo_view)
+        self.stack.addWidget(self.month_view)
         self.stack.addWidget(self.settings_view)
+        self.stack.addWidget(self.todo_view)
+        self.stack.addWidget(self.day_view)
 
         # Navigation
         self.todo_view.open_settings.connect(lambda: self.switch_to(1))
+        self.todo_view.back.connect(lambda: self.switch_back())
         self.settings_view.back.connect(lambda: self.switch_back())
+        self.month_view.open_settings.connect(lambda: self.switch_to(1))
+        self.month_view.open_todo.connect(lambda: self.switch_to(2))
+        self.month_view.open_day.connect(lambda: self.switch_to(3))
+        self.month_view.back.connect(lambda: self.switch_back())
+        self.day_view.back.connect(lambda: self.switch_back())
+
 
 
         # Apply themes
@@ -725,6 +958,7 @@ class MainWindow(QMainWindow):
         if index != self.current_index:
             self.index_stack.add_item(self.current_index)
         self.stack.setCurrentIndex(index)
+        self.current_index = index
 
 
     def switch_back(self):
@@ -733,3 +967,5 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "oopsie woopsie", "cannot go back anymore")
         else:
             self.stack.setCurrentIndex(popped)
+            self.current_index = popped
+

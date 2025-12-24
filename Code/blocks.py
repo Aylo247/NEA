@@ -43,7 +43,7 @@ class event(Block):
 
 #the task block that is movable and can be marked complete or incomplete
 class task(Block):
-    def __init__(self, name, start, duration, deadline = None, location = "", notes = "" , is_fixed = False):
+    def __init__(self, name, start, duration, deadline=None, location = "", notes = "" , is_fixed = False):
         super().__init__(name, start, duration, location, notes, is_fixed)
         self.deadline = deadline
         self.is_completed = False
