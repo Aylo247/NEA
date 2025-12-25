@@ -93,6 +93,33 @@ fixed_events = [
 for name, start, duration_min, priority in fixed_events:
     sched.add_block(event(name, start, timedelta(minutes=duration_min), is_fixed=True, priority=priority))
 
+team_sync = event(
+    name="Weekly Team Sync",
+    start=datetime(2025, 12, 24, 9, 0),
+    duration=timedelta(minutes=60),
+    location="Office",
+    notes="Recurring weekly team meeting",
+    is_fixed=True,
+    priority=1,
+    repeatable=True,
+    interval=7
+)
+
+project_review = event(
+    name="Bi-weekly Project Review",
+    start=datetime(2025, 12, 25, 14, 0),
+    duration=timedelta(minutes=90),
+    location="Zoom",
+    notes="Check progress and milestones",
+    is_fixed=True,
+    priority=2,
+    repeatable=True,
+    interval=14
+)
+
+sched.add_block(team_sync)
+sched.add_block(project_review)
+
 # --- Add flexible tasks (2 weeks) ---
 flexible_tasks = [
     ("Draft Proposal", datetime(2025, 12, 23, 18, 30), 60),

@@ -35,7 +35,7 @@ class Schedule:
             if block.type == "event":
                 block_dict["priority"] = block.priority
                 block_dict["repeatable"] = block.repeatable
-                block_dict["interval"] = block.repeatinterval if block.repeatable else 0
+                block_dict["interval"] = block.interval if block.repeatable else 0
 
             elif block.type == "task":
                 block_dict["deadline"] = block.deadline.isoformat() if block.deadline else None
@@ -113,7 +113,12 @@ class Schedule:
     #adds\removes blocks and mark tasks as complete\incomplete
     def add_block(self, block):
         self.blocks.append(block)
-        self.global_edf_scheduler()
+        if block.start is not None and block.type == "task":
+            self.global_edf_scheduler(ignore_blocks=[block])
+        else:
+            self.global_edf_scheduler()
+
+
 
     def remove_block(self, block):
         if block in self.blocks:
@@ -246,7 +251,6 @@ class Schedule:
                         break  # meal scheduled
                     # Otherwise loop continues with updated pointer
 
-
         def meal_valid(meal_name, scheduled_blocks, pointer, date):
             day_blocks = [b for b in scheduled_blocks if b.start is not None and b.start.date() == date]
             meal_start, meal_end = self.settings.meal_windows[meal_name]
@@ -284,6 +288,31 @@ class Schedule:
             e for e in events
             if not (e.repeatable and is_holiday(e.start))
         ]
+        for b in current_schedule:
+            if getattr(b, "repeatable", True):
+                repeat_interval = timedelta(days=b.interval)
+                next_start = b.start + repeat_interval
+                while next_start <= datetime.now() + timedelta(days=42):
+                    if not is_holiday(next_start):
+                        # Check if an event with the same name and start already exists
+                        exists = any(
+                            existing.name == b.name and existing.start == next_start
+                            for existing in current_schedule
+                        )
+                        if not exists:
+                            repeated_event = event(
+                                name=b.name,
+                                start=next_start,
+                                duration=b.duration,
+                                location=getattr(b, "location", None),
+                                notes=getattr(b, "notes", None),
+                                is_fixed=b.is_fixed,
+                                priority=b.priority,
+                                repeatable=b.repeatable,
+                                interval=b.interval
+                            )
+                            current_schedule.append(repeated_event)
+                    next_start += repeat_interval
 
         current_schedule = current_schedule + ignore_blocks
         current_schedule.sort(key=lambda b: b.start)

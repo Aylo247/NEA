@@ -39,7 +39,7 @@ class event(Block):
         self.priority = priority #0 for lowest an 2 for highest, for exambple a doctor appointment would be 2 but a lesson would be 1
         self.repeatable = repeatable
         self.type = "event"
-        self.repeatinterval = interval
+        self.interval = interval
 
 #the task block that is movable and can be marked complete or incomplete
 class task(Block):
