@@ -9,7 +9,8 @@
     "button_fg": "#FFFFFF",
     "button_hover": "#D2A05C",
     "border_color": "#D6C6B3",
-    "calendar_grid": "#CBBDAA"   
+    "calendar_grid_light": "#E3D9CB",
+    "calendar_grid_dark": "#B5A691"
   },
   "dark": {
     "font": "Helvetica Neue",
@@ -21,6 +22,7 @@
     "button_fg": "#FFFFFF",
     "button_hover": "#6C492E",
     "border_color": "#4A331F",
-    "calendar_grid": "#5A3F2B"  
+    "calendar_grid_light": "#72523A",
+    "calendar_grid_dark": "#3F2A1C"
   }
 }

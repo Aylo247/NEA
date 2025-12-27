@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (
     QMessageBox, QPushButton, QHBoxLayout, QWidget,
     QApplication)
-from PyQt5.QtCore import QTime
-from datetime import datetime, timedelta, time
+from PyQt5.QtCore import QDateTime
+from datetime import timedelta, datetime
 
 
 class IndexStack():
@@ -33,16 +33,24 @@ class GUIUtils():
         self.settings = settings
 
     @staticmethod
-    def round_to_5(qtime):
-        # Convert QTime → datetime.time
-        dt = datetime.combine(datetime.today(), time(qtime.hour(), qtime.minute(), qtime.second()))
-        discard = timedelta(minutes=dt.minute % 5, seconds=dt.second, microseconds=dt.microsecond)
-        dt -= discard
-        if discard >= timedelta(minutes=2.5):
-            dt += timedelta(minutes=5)
-        # Convert back to QTime
-        return QTime(dt.hour, dt.minute)
+    def round_qdatetime_to_5(qdt):
+        if isinstance(qdt, datetime):
+            qdt = QDateTime(qdt)
 
+        py = qdt.toPyDateTime()
+
+        discard = timedelta(
+            minutes=py.minute % 5,
+            seconds=py.second,
+            microseconds=py.microsecond
+        )
+
+        py -= discard
+        if discard >= timedelta(minutes=2.5):
+            py += timedelta(minutes=5)
+
+        return QDateTime(py)
+    
     @staticmethod
     def pop_up_confirm(parent, message: str) -> bool:
         reply = QMessageBox.question(
@@ -68,7 +76,9 @@ class GUIUtils():
     def create_top_bar(*,
                        show_back=False,
                        show_settings=False,
-                       show_todo=False):
+                       show_todo=False,
+                       show_month=False
+                       ):
         bar = QWidget()
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(12, 12, 12, 6)
@@ -80,6 +90,10 @@ class GUIUtils():
             layout.addWidget(buttons["back"])
 
         layout.addStretch()
+
+        if show_month:
+            buttons["month"] = QPushButton("Month View")
+            layout.addWidget(buttons["month"])
 
         if show_todo:
             buttons["todo"] = QPushButton("To-Do")

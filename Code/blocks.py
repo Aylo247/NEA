@@ -32,7 +32,7 @@ class Block():
         self.start = new_start
 
 #the event block that is fixed and cannot be moved
-class event(Block):
+class eventblock(Block):
 
     def __init__(self, name, start, duration, location = "", notes = "" , is_fixed = True, priority = 0, repeatable = False, interval = 0):
         super().__init__(name, start, duration, location, notes, is_fixed)
@@ -96,7 +96,7 @@ class CustomBlock():
             priority = int(params.get("priority", 0))
             repeatable = bool(params.get("repeatable", False))
             interval = int(params.get("interval") if repeatable else 0)
-            return event(name, start, duration, location, notes, is_fixed, priority, repeatable, interval)
+            return eventblock(name, start, duration, location, notes, is_fixed, priority, repeatable, interval)
         
         elif params.get("type") == "task":
             name = params.get("name")

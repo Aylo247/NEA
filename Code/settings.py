@@ -1,4 +1,4 @@
-from datetime import time, timedelta, date
+from datetime import time, timedelta, date, datetime
 import json
 from PyQt5.QtGui import QColor
 
@@ -86,6 +86,24 @@ class Settings:
             (start, end) for start, end in self.holiday_ranges
             if end >= today
         ]
+    
+    def is_holiday(self, check_date):
+        for start, end in self.holiday_ranges:
+            if start <= check_date.date() <= end:
+                return True
+        return False
+
+    def get_day_bounds(self, dt):
+        # weekday: 0=Mon, 6=Sun
+        weekday = dt.weekday()
+        if self.is_holiday(dt) or weekday >= 5:
+            start = datetime.combine(dt.date(), self.weekend_start)
+            end = datetime.combine(dt.date(), self.weekend_end)
+        else:
+            start = datetime.combine(dt.date(), self.start_time)
+            end = datetime.combine(dt.date(), self.end_time)
+        return start, end
+
 
 class ThemeManager:
     """ 
@@ -116,6 +134,11 @@ class ThemeManager:
         t = self.themes.get(theme_name.lower(), {})
 
         return self.theme_to_qss(t)
+    
+    def get_theme_dict(self, theme_name):
+        if not theme_name:
+            return {}
+        return self.themes.get(theme_name.lower(), {})
     
     def theme_to_qss(self, theme):
         return f"""
@@ -159,13 +182,9 @@ class ThemeManager:
 
 
     def get_colour(self, theme_name, key, fallback="#000000"):
-        """
-        Convenience method to fetch a QColor directly.
-        Prevents crashes if keys are missing.
-        """
-        theme = self.get_theme(theme_name)
+        theme = self.get_theme_dict(theme_name)
         return QColor(theme.get(key, fallback))
 
     def get_font(self, theme_name, fallback="Arial"):
-        theme = self.get_theme(theme_name)
+        theme = self.get_theme_dict(theme_name)
         return theme.get("font", fallback)
