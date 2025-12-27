@@ -33,10 +33,7 @@ class GUIUtils():
         self.settings = settings
 
     @staticmethod
-    def round_qdatetime_to_5(qdt):
-        if isinstance(qdt, datetime):
-            qdt = QDateTime(qdt)
-
+    def round_qdatetime_to_5(qdt: QDateTime) -> QDateTime:
         py = qdt.toPyDateTime()
 
         discard = timedelta(
