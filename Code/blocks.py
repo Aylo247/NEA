@@ -20,16 +20,6 @@ class Block():
     @property
     def end(self):
         return self.duration + self.start #datetime object
-    
-    def edit(self,**kwargs):
-        for key, value in kwargs.items():
-            if hasattr(self, key): # check if attribute exists
-                setattr(self, key, value)
-
-    def move(self, new_start):
-        if self.is_fixed:
-            raise ValueError("Cannot move a fixed block.") #error should display a pop-up in the GUI
-        self.start = new_start
 
 #the event block that is fixed and cannot be moved
 class eventblock(Block):

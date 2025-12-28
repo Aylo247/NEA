@@ -19,6 +19,7 @@ class Schedule:
         for i in self.blocks:
             if i.type == "task" and i.name not in {"breakfast", "lunch", "dinner", "break"}:
                 tasks.append(i)
+
         return tasks
 
     #converts the schedule and its blocks to and from a dictionary for easy JSON serialization by the PersistenceManager class
@@ -165,9 +166,9 @@ class Schedule:
             List of Block objects with updated start times.
         """
         SPECIAL_NAMES = {"breakfast", "lunch", "dinner", "break"}
-        BREAK_INTERVAL = timedelta(hours=1, minutes=30)
+        BREAK_INTERVAL = self.settings.break_interval
         BREAK_DURATION = self.settings.break_duration
-        MEAL_DURATION = timedelta(minutes=30)
+        MEAL_DURATION = self.settings.meal_duration
 
 
         # Helper functions
@@ -310,6 +311,10 @@ class Schedule:
             b for b in scheduled_blocks
             if b.type == 'task' and not b.is_completed and not b.name in SPECIAL_NAMES and b not in ignore_blocks
         ]
+        completed_tasks = [
+            b for b in scheduled_blocks
+            if b.type == 'task' and b.is_completed and not b.name in SPECIAL_NAMES and b not in ignore_blocks
+        ]
         events = [b for b in scheduled_blocks if isinstance(b, eventblock)]
         current_schedule = [
             e for e in events
@@ -389,9 +394,6 @@ class Schedule:
         for date in all_dates:
             ensure_meals_for_date(date, current_schedule)
 
-        self.blocks = current_schedule
-
-        for b in self.blocks:
-            print(f"{b.name} | start: {b.start}   end: {b.start + b.duration if b.start else 'N/A'}")
+        self.blocks = current_schedule + completed_tasks
 
 

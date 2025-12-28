@@ -345,3 +345,5 @@ class ToDoListView(QWidget):
             )
             self.schedule.add_block(new_task)
             self.refresh()
+
+        

@@ -1,6 +1,6 @@
 {
     "settings": {
-        "theme": "light",
+        "theme": "dark",
         "start_time": "07:00:00",
         "end_time": "22:00:00",
         "weekend_start": "09:00:00",
@@ -9,7 +9,7 @@
         "meal_windows": {
             "breakfast": [
                 "07:00:00",
-                "09:00:00"
+                "10:00:00"
             ],
             "lunch": [
                 "12:00:00",
@@ -21,6 +21,8 @@
             ]
         },
         "break_duration": 30.0,
+        "break_interval": 90.0,
+        "meal_duration": 30.0,
         "history_duration": 7.0,
         "holiday_ranges": []
     }

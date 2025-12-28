@@ -56,8 +56,6 @@ def main():
         notes="Buy ingredients for dinner"
     ))
 
-    # Debug print
-    print("Schedule blocks:")
 
     # Initialize settings and persistence
     thememanager = ThemeManager()  # use your real persistence

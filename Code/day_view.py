@@ -1,11 +1,13 @@
+from cmath import rect
 from PyQt5.QtWidgets import (
-   QWidget, QVBoxLayout, QScrollArea, QListWidgetItem, QDialog,QListWidget, 
-   QHBoxLayout, QSizePolicy
+   QWidget, QVBoxLayout, QScrollArea, QListWidgetItem, QDialog, QListWidget, 
+   QHBoxLayout, QSizePolicy, QMenu
 )
 from PyQt5.QtGui import QFont, QPainter, QColor, QDrag
 from PyQt5.QtCore import (
-    Qt, pyqtSignal, QRect, QMimeData, QByteArray
+    Qt, pyqtSignal, QRect, QMimeData, QByteArray, QPoint
 )
+from numpy import block
 from blocks import task, eventblock
 from datetime import datetime, timedelta, date, time
 from dialogs import AddTaskDialog, AddEventDialog
@@ -16,6 +18,8 @@ class DayView(QWidget):
         super().__init__(parent)
         self.schedule = schedule
         self.util = util
+        self.block_rects = []
+        self.ghost_rects = []
 
         # ----- constants -----
         self.hour_height = 120
@@ -62,32 +66,24 @@ class DayView(QWidget):
 
     # ---------- painting ----------
     def paintEvent(self, event):
+        self.block_rects.clear()
+        self.ghost_rects.clear()
         self.items = self.schedule.day(date.today())
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setFont(QFont("Arial", 12))
-        painter.setPen(self.text_color)
 
         # === GRID ===
         for hour in range(24):
             y_start = int(hour * self.hour_height)
-
-            painter.fillRect(
-                50, y_start,
-                self.width() - 50,
-                self.main_line_height,
-                self.grid_color_dark
-            )
+            # main line
+            painter.fillRect(50, y_start, self.width() - 50, self.main_line_height, self.grid_color_dark)
 
             current_y = y_start + self.main_line_height
             for _ in range(self.num_faint_lines):
                 current_y += self.segment_spacing
-                painter.fillRect(
-                    50, int(current_y),
-                    self.width() - 50,
-                    self.faint_line_height,
-                    self.grid_color_light
-                )
+                painter.fillRect(50, int(current_y), self.width() - 50, self.faint_line_height, self.grid_color_light)
                 current_y += self.faint_line_height
 
             painter.setPen(Qt.black)
@@ -95,80 +91,120 @@ class DayView(QWidget):
             text_y = int(line_center + painter.fontMetrics().ascent() / 2)
             painter.drawText(5, text_y, f"{hour:02d}:00")
 
+        # --- helper to draw a block ---
+        def draw_block(item, rect, alpha=255):
+            # background
+            color = QColor("#6F4C3C")
+            color.setAlpha(alpha)
+            painter.setBrush(color)
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(rect, 6, 6)
+
+            # vertical triple-dot
+            dot_x = rect.right() - 12
+            dot_y = rect.top() + 4
+            dot_radius = 2
+            dot_spacing = 6
+            painter.setBrush(Qt.white)
+            for i in range(3):
+                painter.drawEllipse(QPoint(dot_x, dot_y + i * dot_spacing), dot_radius, dot_radius)
+
+            # prepare text info
+            lines = [
+                f"{item.name}",
+                f"{item.start.strftime('%H:%M')} - {(item.start + item.duration).strftime('%H:%M')}",
+                f"Duration: {int(item.duration.total_seconds() // 3600)}h {(int(item.duration.total_seconds() % 3600) // 60)}m"
+            ]
+
+            if getattr(item, "type", None) == "task":
+                if getattr(item, "deadline", None):
+                    lines.append(f"Deadline: {item.deadline.strftime('%d/%m/%Y %H:%M')}")
+            elif getattr(item, "type", None) == "event":
+                lines.append(f"Priority: {getattr(item,'priority','-')}")
+                lines.append(f"Repeat: {getattr(item,'repeat_count',0)} days")
+                interval = getattr(item,'interval', None)
+                if interval:
+                    lines.append(f"Interval: {interval} min")
+
+            if getattr(item, "location", None):
+                lines.append(f"Loc: {item.location}")
+            if getattr(item, "notes", None):
+                lines.append(f"Notes: {item.notes}")
+
+            # clip lines to fit rect
+            text_height = rect.height() - 8
+            line_height = painter.fontMetrics().height()
+            max_lines = max(1, text_height // line_height)
+            lines_to_draw = lines[:max_lines]
+
+            painter.setPen(Qt.white)
+            painter.drawText(
+                QRect(rect.left() + 5, rect.top() + 4, rect.width() - 20, rect.height() - 4),
+                Qt.TextWordWrap,
+                "\n".join(lines_to_draw)
+            )
+
         # === BLOCKS ===
         for item in self.items:
             if item is self.dragging_block:
-                continue  # skip, will draw as ghost
+                continue  # ghost handled separately
 
             start = item.start
             end = start + item.duration
             y_start = self.time_to_y(start)
             y_end = self.time_to_y(end)
             height = max(4, y_end - y_start)
-
-            painter.setBrush(QColor("#6F4C3C"))
-            painter.setPen(Qt.NoPen)
             rect = QRect(60, int(y_start + 2), int(self.width() - 80), int(height - 4))
-            painter.drawRoundedRect(rect, 6, 6)
 
-            painter.setPen(Qt.white)
-            painter.drawText(
-                QRect(65, int(y_start + 4), int(self.width() - 90), int(height)),
-                Qt.TextWordWrap,
-                item.name
-            )
+            draw_block(item, rect)
+            self.block_rects.append((rect, item))
 
         # === GHOST BLOCK ===
         ghost = self.dragging_block or self.incoming_block
         if ghost:
-            # For dicts from BlockPool
             if isinstance(ghost, dict):
-                start = ghost.get('ghost_start')
-                duration = ghost.get('ghost_duration', timedelta(minutes=60))
-                name = ghost.get('name', 'Block')
+                start = ghost.get("ghost_start")
+                duration = ghost.get("ghost_duration", timedelta(minutes=60))
+                name = ghost.get("name", "Block")
             else:
-                start = getattr(ghost, 'start', None)
-                duration = getattr(ghost, 'duration', None)
-                name = getattr(ghost, 'name', str(ghost))
-                if hasattr(ghost, 'ghost_start'):
+                start = getattr(ghost, "start", None)
+                duration = getattr(ghost, "duration", None)
+                name = getattr(ghost, "name", str(ghost))
+                if hasattr(ghost, "ghost_start"):
                     start = ghost.ghost_start
 
             if start and duration:
-                end = start + duration
-                y_start = self.time_to_y(start)
-                y_end = self.time_to_y(end)
-                height = max(4, y_end - y_start)
-
-                color = QColor("#6F4C3C")
-                color.setAlpha(120)
-                painter.setBrush(color)
-                painter.setPen(Qt.NoPen)
-                rect = QRect(60, int(y_start + 2), int(self.width() - 80), int(height - 4))
-                painter.drawRoundedRect(rect, 6, 6)
-
-                painter.setPen(Qt.white)
-                painter.drawText(
-                    QRect(65, int(y_start + 4), int(self.width() - 90), int(height)),
-                    Qt.TextWordWrap,
-                    name
-        )
+                rect = QRect(60, int(self.time_to_y(start) + 2), int(self.width() - 80), int(max(4, self.time_to_y(start + duration) - self.time_to_y(start) - 4)))
+                draw_block(ghost, rect, alpha=120)
+                self.ghost_rects.append((rect, ghost))
 
     def mousePressEvent(self, event):
-        for item in reversed(self.items):  # check topmost first
-            start = item.start
-            end = start + item.duration
-            y_start = self.time_to_y(start)
-            y_end = self.time_to_y(end)
-            if y_start <= event.y() <= y_end:
-                # check if near bottom/top for resize
-                if abs(event.y() - y_start) <= 6:
-                    self.resizing_block = (item, 'top')
-                elif abs(event.y() - y_end) <= 6:
-                    self.resizing_block = (item, 'bottom')
-                else:
-                    self.dragging_block = item
-                    self.drag_offset = event.y() - y_start
-                break
+        click_x = event.x()
+        click_y = event.y()
+
+        # Use the rects stored in paintEvent
+        for rect, item in reversed(self.block_rects):  # topmost first
+            # triple-dot menu rect
+            dot_size = 20
+            menu_rect = QRect(rect.right() - dot_size, rect.top(), dot_size, dot_size)
+            if menu_rect.contains(click_x, click_y):
+                self.show_block_menu(item, event.globalPos())
+                return
+
+            # resize logic
+            if abs(click_y - rect.top()) <= 6:
+                self.resizing_block = (item, 'top')
+                return
+            elif abs(click_y - rect.bottom()) <= 6:
+                self.resizing_block = (item, 'bottom')
+                return
+
+            # drag logic
+            if rect.contains(click_x, click_y):
+                self.dragging_block = item
+                self.drag_offset = click_y - rect.top()
+                return
+
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-block"):
@@ -325,10 +361,95 @@ class DayView(QWidget):
         self.incoming_block = None
         self.update()
 
-
     def dragLeaveEvent(self, event):
         self.incoming_block = None
         self.update()  
+
+    def show_block_menu(self, block, global_pos):
+        menu = QMenu(self)
+        menu.addAction("Edit", lambda b=block: self.edit_block(b))
+        menu.addAction("Delete", lambda b=block: self.delete_block(b))
+        menu.addAction("Inspect", lambda b=block: self.inspect_block(b))
+        menu.exec_(global_pos)
+
+    def edit_block(self, block):
+        if getattr(block, "type", None) == "task":
+            dialog = AddTaskDialog(self.util, default_start=block.start, parent=self)
+            # prefill existing data
+            dialog.name_input.setText(block.name)
+            dialog.duration_input.setValue(int(block.duration.total_seconds() // 60))
+            if block.deadline:
+                dialog.deadline_input.setDateTime(block.deadline)
+            if block.start:
+                dialog.start_input.setDateTime(block.start)
+            if block.location:
+                dialog.location_input.setText(block.location)
+            if block.notes:
+                dialog.notes_input.setText(block.notes)
+
+            if dialog.exec_() == QDialog.Accepted:
+                data = dialog.get_data()
+                block.name = data["name"]
+                block.start = data["start"]
+                block.duration = data["duration"]
+                block.deadline = data["deadline"]
+                block.location = data.get("location")
+                block.notes = data.get("notes")
+                self.update()
+
+        elif getattr(block, "type", None) == "event":
+            dialog = AddEventDialog(self.util, default_start=block.start, parent=self)
+            # prefill existing data
+            dialog.name_input.setText(block.name)
+            dialog.duration_input.setValue(int(block.duration.total_seconds() // 60))
+            if block.start:
+                dialog.start_input.setDateTime(block.start)
+            dialog.priority_input.setCurrentIndex(getattr(block, "priority", 0))
+            repeatable = getattr(block, "repeatable", False)
+            dialog.repeatable_input.setCurrentIndex(1 if repeatable else 0)
+            dialog.interval_input.setValue(getattr(block, "interval", 1))
+
+            if dialog.exec_() == QDialog.Accepted:
+                data = dialog.get_data()
+                block.name = data["name"]
+                block.start = data["start"]
+                block.duration = data["duration"]
+                block.priority = data["priority"]
+                block.repeatable = data["repeatable"]
+                block.interval = data["interval"]
+                self.update()
+        self.schedule.global_edf_scheduler()
+
+    def delete_block(self, block):
+        if block in self.schedule.blocks:
+            self.schedule.remove_block(block)
+            self.update()
+
+    def inspect_block(self, block):
+        info_lines = [
+            f"Name: {block.name}",
+            f"Start: {block.start}",
+            f"End: {block.start + block.duration}",
+            f"Duration: {int(block.duration.total_seconds()//3600)}h {(int(block.duration.total_seconds()%3600)//60)}m",
+            f"Type: {getattr(block,'type','-')}",
+        ]
+
+        if getattr(block,'type',None) == "task":
+            info_lines.append(f"Deadline: {getattr(block,'deadline','-')}")
+        elif getattr(block,'type',None) == "event":
+            info_lines.append(f"Priority: {getattr(block,'priority','-')}")
+            info_lines.append(f"Repeatable: {'Yes' if getattr(block,'repeatable',False) else 'No'}")
+            interval = getattr(block,'interval',None)
+            if interval:
+                info_lines.append(f"Interval: {interval} days")
+
+        if getattr(block,'location',None):
+            info_lines.append(f"Location: {block.location}")
+        if getattr(block,'notes',None):
+            info_lines.append(f"Notes: {block.notes}")
+
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(self, "Inspect Block", "\n".join(info_lines))
 
 class BlockPool(QListWidget):   
     def __init__(self, day_view):

@@ -20,6 +20,8 @@ class Settings:
                              "lunch": (time(12,0), time(14,0)),
                              "dinner": (time(18,0), time(20,0))}
         self.break_duration = timedelta(minutes=30)
+        self.break_interval = timedelta(minutes=90)
+        self.meal_duration = timedelta(minutes=30)
         self.history_duration = timedelta(days=7)
         self.holiday_ranges = []  # list of tuples (start_date, end_date)
 
@@ -38,6 +40,8 @@ class Settings:
             },
             "break_duration": self.break_duration.total_seconds() // 60,  # in minutes,
             "history_duration": self.history_duration.total_seconds() // 86400,  # in days
+            "break_interval": self.break_interval.total_seconds() // 60, # in minutes,
+            "meal_duration": self.meal_duration.total_seconds() // 60, # in minutes,
             "holiday_ranges": [
                 (start.isoformat(), end.isoformat())
                 for start, end in self.holiday_ranges
@@ -51,7 +55,8 @@ class Settings:
         self.end_time = time.fromisoformat(data.get("end_time", self.end_time.isoformat()))
         self.weekend_start = time.fromisoformat(data.get("weekend_start", self.weekend_start.isoformat()))
         self.weekend_end = time.fromisoformat(data.get("weekend_end", self.weekend_end.isoformat()))
-        self.notification_frequency = timedelta(minutes=data.get("notification_frequency", self.notification_frequency.total_seconds()))
+        nf = data.get("notification_frequency")
+        self.notification_frequency = timedelta(minutes=nf)
         
         meal_windows_data = data.get("meal_windows", {})
         self.meal_windows = {
@@ -61,6 +66,11 @@ class Settings:
         
         break_duration_data = data.get("break_duration")
         self.break_duration = timedelta(minutes=break_duration_data)
+        break_interval_data = data.get("break_interval")
+        self.break_interval = timedelta(minutes=break_interval_data)
+
+        meal_duration_data = data.get("meal_duration")
+        self.meal_duration = timedelta(minutes=meal_duration_data)
 
         self.history_duration = timedelta(days=data.get("history_duration", self.history_duration.total_seconds() // 86400))
         holiday_ranges_data = data.get("holiday_ranges", [])

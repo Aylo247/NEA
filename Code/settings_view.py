@@ -1,14 +1,15 @@
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QGroupBox, QFormLayout, QComboBox, QTimeEdit, 
-    QPushButton,QMessageBox, QDialog, QCalendarWidget, QListWidget, QHBoxLayout, 
-    QSpinBox
+    QWidget, QVBoxLayout, QLabel, QGroupBox, QFormLayout, QComboBox, 
+    QPushButton,QMessageBox, QDialog, QCalendarWidget, QListWidget, 
+    QHBoxLayout, QSpinBox, QListWidgetItem
 )
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import (
-    QTime, QDate, pyqtSignal
+    QTime, QDate, pyqtSignal, QDateTime
 )
 import copy
 from datetime import timedelta
+from utils import FiveMinuteTimeEdit
 
 class SettingsView(QWidget):
     back = pyqtSignal()
@@ -46,8 +47,8 @@ class SettingsView(QWidget):
         self.general_form.addRow("theme", self.theme_box)
 
         # Weekday times
-        self.start_time_edit = QTimeEdit(QTime(self.settings.start_time.hour, self.settings.start_time.minute))
-        self.end_time_edit = QTimeEdit(QTime(self.settings.end_time.hour, self.settings.end_time.minute))
+        self.start_time_edit = FiveMinuteTimeEdit(QTime(self.settings.start_time.hour, self.settings.start_time.minute))
+        self.end_time_edit = FiveMinuteTimeEdit(QTime(self.settings.end_time.hour, self.settings.end_time.minute))
         self.general_form.addRow("weekday start time", self.start_time_edit)
         self.general_form.addRow("weekday end time", self.end_time_edit)
 
@@ -56,8 +57,8 @@ class SettingsView(QWidget):
 
 
         # weekend times
-        self.weekend_start_edit = QTimeEdit(QTime(self.settings.weekend_start.hour, self.settings.weekend_start.minute))
-        self.weekend_end_edit = QTimeEdit(QTime(self.settings.weekend_end.hour, self.settings.weekend_end.minute))
+        self.weekend_start_edit = FiveMinuteTimeEdit(QTime(self.settings.weekend_start.hour, self.settings.weekend_start.minute))
+        self.weekend_end_edit = FiveMinuteTimeEdit(QTime(self.settings.weekend_end.hour, self.settings.weekend_end.minute))
         self.general_form.addRow("weekend start time", self.weekend_start_edit)
         self.general_form.addRow("weekend end time", self.weekend_end_edit)
 
@@ -70,7 +71,18 @@ class SettingsView(QWidget):
         self.break_duration_spin.setSuffix(" min")
         self.break_duration_spin.setValue(int(self.settings.break_duration.total_seconds() // 60))
         self.break_duration_spin.valueChanged.connect(self.on_break_duration_changed)
+        self.break_duration_spin.setSingleStep(5)
         self.general_form.addRow("break duration", self.break_duration_spin)
+
+        # break interval
+        self.break_interval_spin = QSpinBox()
+        self.break_interval_spin.setRange(30, 240)
+        self.break_interval_spin.setSingleStep(5)
+        self.break_interval_spin.setSuffix(" min")
+        self.break_interval_spin.setValue(int(self.settings.break_interval.total_seconds() // 60))
+        self.break_interval_spin.valueChanged.connect(self.on_break_interval_changed)
+        self.break_interval_spin.setSingleStep(5)
+        self.general_form.addRow("break interval", self.break_interval_spin)
 
         # notification
         self.notification_spin = QSpinBox()
@@ -78,6 +90,7 @@ class SettingsView(QWidget):
         self.notification_spin.setSuffix(" min")
         self.notification_spin.setValue(int(self.settings.notification_frequency.total_seconds() // 60))
         self.notification_spin.valueChanged.connect(self.on_notification_duration_changed)
+        self.notification_spin.setSingleStep(5)
         self.general_form.addRow("notification duration", self.notification_spin)
 
         # meal times
@@ -88,13 +101,23 @@ class SettingsView(QWidget):
 
         self.meal_edits = {}
         for meal, (start, end) in self.settings.meal_windows.items():
-            start_edit = QTimeEdit(QTime(start.hour, start.minute))
-            end_edit = QTimeEdit(QTime(end.hour, end.minute))
+            start_edit = FiveMinuteTimeEdit(QTime(start.hour, start.minute))
+            end_edit = FiveMinuteTimeEdit(QTime(end.hour, end.minute))
             start_edit.timeChanged.connect(self.validate_meal_times)
             end_edit.timeChanged.connect(self.validate_meal_times)
             self.meal_form.addRow(f"{meal} start".lower(), start_edit)
             self.meal_form.addRow(f"{meal} end".lower(), end_edit)
             self.meal_edits[meal] = (start_edit, end_edit)
+
+        # meal duration
+        self.meal_duration_spin = QSpinBox()
+        self.meal_duration_spin.setRange(15, 120)
+        self.meal_duration_spin.setSingleStep(5)
+        self.meal_duration_spin.setSuffix(" min")
+        self.meal_duration_spin.setValue(int(self.settings.meal_duration.total_seconds() // 60))
+        self.meal_duration_spin.valueChanged.connect(self.on_meal_duration_changed)
+        self.meal_duration_spin.setSingleStep(5)
+        self.meal_form.addRow("meal duration", self.meal_duration_spin)
 
         # holidays
         self.holiday_group = QGroupBox("holidays (max 3)")
@@ -146,7 +169,6 @@ class SettingsView(QWidget):
         # apply theme initially
         self.util.apply_theme()
 
-    
     # state snapshot
     def _snapshot_state(self):
         return {
@@ -156,6 +178,7 @@ class SettingsView(QWidget):
             "weekend_start": self.weekend_start_edit.time().toString("HH:mm"),
             "weekend_end": self.weekend_end_edit.time().toString("HH:mm"),
             "break_duration": self.break_duration_spin.value(),
+            "break_interval": self.break_interval_spin.value(),
             "notification_frequency": self.notification_spin.value(),
             "meal_windows": {
                 meal: (
@@ -164,6 +187,7 @@ class SettingsView(QWidget):
                 )
                 for meal, (start, end) in self.meal_edits.items()
             },
+            "meal_duration": self.meal_duration_spin.value(),
             "holidays": list(self.settings.holiday_ranges)
         }  
 
@@ -196,6 +220,7 @@ class SettingsView(QWidget):
         self.settings.weekend_start = QTime.fromString(self._temp_state["weekend_start"], "HH:mm").toPyTime()
         self.settings.weekend_end = QTime.fromString(self._temp_state["weekend_end"], "HH:mm").toPyTime()
         self.settings.break_duration = timedelta(minutes=self._temp_state["break_duration"])
+        self.settings.break_interval = timedelta(minutes=self._temp_state["break_interval"])
         self.settings.notification_frequency = timedelta(minutes=self._temp_state["notification_frequency"])
 
         for meal, (s, e) in self._temp_state["meal_windows"].items():
@@ -203,7 +228,7 @@ class SettingsView(QWidget):
                 QTime.fromString(s, "HH:mm").toPyTime(),
                 QTime.fromString(e, "HH:mm").toPyTime()
             )
-
+        self.settings.meal_duration = timedelta(minutes=self._temp_state["meal_duration"])
         self.settings.holiday_ranges = list(self._temp_state["holidays"])
         self.persistence.save_settings(self.settings)
 
@@ -229,12 +254,31 @@ class SettingsView(QWidget):
         else:
             event.accept()
 
+    def on_break_interval_changed(self, value):
+        snapped = self.util.snap_to_5_minutes(value)
+        self.break_interval_spin.blockSignals(True)
+        self.break_interval_spin.setValue(snapped)
+        self.break_interval_spin.blockSignals(False)
+
+        self._temp_state["break_interval"] = snapped
+        self._update_save_state()
+
     def on_break_duration_changed(self, value):
-        self._temp_state["break_duration"] = value
+        snapped = self.util.snap_to_5_minutes(value)
+        self.break_duration_spin.blockSignals(True)
+        self.break_duration_spin.setValue(snapped)
+        self.break_duration_spin.blockSignals(False)
+
+        self._temp_state["break_duration"] = snapped
         self._update_save_state()
 
     def on_notification_duration_changed(self, value):
-        self._temp_state["notification_frequency"] = value
+        snapped = self.util.snap_to_5_minutes(value)
+        self.notification_spin.blockSignals(True)
+        self.notification_spin.setValue(snapped)
+        self.notification_spin.blockSignals(False)
+
+        self._temp_state["notification_frequency"] = snapped
         self._update_save_state()
  
     def on_back_clicked(self):
@@ -296,6 +340,8 @@ class SettingsView(QWidget):
         self.refresh_holiday_list()
         self._update_save_state()
 
+        dialog.accept()
+
     def edit_holiday(self, item):   
         index = self.holiday_list_widget.row(item)
         start, end = self._temp_state["holidays"][index]
@@ -348,50 +394,109 @@ class SettingsView(QWidget):
     def refresh_holiday_list(self):
         self.holiday_list_widget.clear()
         for start, end in self._temp_state["holidays"]:
-            self.holiday_list_widget.addItem(f"{start} → {end}")
+            start_qdate = QDate(start.year, start.month, start.day)
+            end_qdate = QDate(end.year, end.month, end.day)
+            start_day = start_qdate.toString("ddd")  # short day name: Mon, Tue
+            end_day = end_qdate.toString("ddd")
+            item_text = f"{start_day} {start} → {end_day} {end}"
+            item = QListWidgetItem(item_text)
+            item.setToolTip("Double click to edit")
+            self.holiday_list_widget.setToolTipDuration(100) 
+            self.holiday_list_widget.addItem(item)
+            
 
     #time validation
     def validate_weekday_times(self):
-        start = self.start_time_edit.time()
-        end = self.end_time_edit.time()
-        
+        start_edit = self.start_time_edit
+        end_edit = self.end_time_edit
 
-        if start >= end or start.addSecs(10 * 60 * 60) > end:
-            t = self._temp_state
-            self.start_time_edit.setTime(QTime.fromString(t["weekday_start"], "HH:mm"))
-            self.end_time_edit.setTime(QTime.fromString(t["weekday_end"], "HH:mm"))
+        start_time = start_edit.time()
+        end_time = end_edit.time()
+
+        # invalid range check: start >= end or duration > 10 hours
+        if start_time >= end_time or start_time.addSecs(10 * 60 * 60) > end_time:
+            ts = self._temp_state["weekday_start"]
+            te = self._temp_state["weekday_end"]
+            start_edit.blockSignals(True)
+            end_edit.blockSignals(True)
+            start_edit.setTime(QTime.fromString(ts, "HH:mm"))
+            end_edit.setTime(QTime.fromString(te, "HH:mm"))
+            start_edit.blockSignals(False)
+            end_edit.blockSignals(False)
             return
-        
+
+        # convert QTime -> QDateTime for snapping
+        today = QDate.currentDate()
+        start_dt = QDateTime(today, start_time)
+        end_dt = QDateTime(today, end_time)
+
+        snapped_start = self.util.round_qdatetime_to_5(start_dt).time()
+        snapped_end = self.util.round_qdatetime_to_5(end_dt).time()
+
+        # update GUI with snapping
+        start_edit.blockSignals(True)
+        end_edit.blockSignals(True)
+        start_edit.setTime(snapped_start)
+        end_edit.setTime(snapped_end)
+        start_edit.blockSignals(False)
+        end_edit.blockSignals(False)
+
+        # update temp state
+        self._temp_state["weekday_start"] = snapped_start.toString("HH:mm")
+        self._temp_state["weekday_end"] = snapped_end.toString("HH:mm")
+
+        # enforce breakfast rule after adjusting times
         self.enforce_breakfast_rule()
 
-        start = self.util.round_to_5(start)
-        end = self.util.round_to_5(end)
-
-        self._temp_state["weekday_start"] = start.toString("HH:mm")
-        self._temp_state["weekday_end"] = end.toString("HH:mm")
         self._update_save_state()
+
         
     def validate_weekend_times(self):
-        start = self.weekend_start_edit.time()
-        end = self.weekend_end_edit.time()
+        start_edit = self.weekend_start_edit
+        end_edit = self.weekend_end_edit
 
-        if start >= end or start.addSecs(10 * 60 * 60) > end:
-            t = self._temp_state
-            self.weekend_start_edit.setTime(QTime.fromString(t["weekend_start"], "HH:mm"))
-            self.weekend_end_edit.setTime(QTime.fromString(t["weekend_end"], "HH:mm"))
+        start_time = start_edit.time()
+        end_time = end_edit.time()
+
+        # invalid range check
+        if start_time >= end_time or start_time.addSecs(10*60*60) > end_time:
+            ts = self._temp_state["weekend_start"]
+            te = self._temp_state["weekend_end"]
+            start_edit.blockSignals(True)
+            end_edit.blockSignals(True)
+            start_edit.setTime(QTime.fromString(ts, "HH:mm"))
+            end_edit.setTime(QTime.fromString(te, "HH:mm"))
+            start_edit.blockSignals(False)
+            end_edit.blockSignals(False)
             return
-        
+
+        # convert QTime → QDateTime for snapping
+        today = QDate.currentDate()
+        start_dt = QDateTime(today, start_time)
+        end_dt = QDateTime(today, end_time)
+
+        snapped_start = self.util.round_qdatetime_to_5(start_dt).time()
+        snapped_end = self.util.round_qdatetime_to_5(end_dt).time()
+
+        # update GUI
+        start_edit.blockSignals(True)
+        end_edit.blockSignals(True)
+        start_edit.setTime(snapped_start)
+        end_edit.setTime(snapped_end)
+        start_edit.blockSignals(False)
+        end_edit.blockSignals(False)
+
+        # update temp state
+        self._temp_state["weekend_start"] = snapped_start.toString("HH:mm")
+        self._temp_state["weekend_end"] = snapped_end.toString("HH:mm")
+
+        # enforce breakfast rule
         self.enforce_breakfast_rule()
-
-        start = self.util.round_to_5(start)
-        end = self.util.round_to_5(end)
-
-        self._temp_state["weekend_start"] = start.toString("HH:mm")
-        self._temp_state["weekend_end"] = end.toString("HH:mm")
         self._update_save_state()
 
+
     def enforce_breakfast_rule(self):
-        """Ensure breakfast ends at least 30 mins after day start."""
+        """Ensure breakfast ends at least 30 mins after day start, snapping to 5 mins."""
         b_start_edit, b_end_edit = self.meal_edits["breakfast"]
 
         latest_day_start = max(
@@ -399,73 +504,160 @@ class SettingsView(QWidget):
             self.weekend_start_edit.time()
         )
 
-        if b_end_edit.time() < latest_day_start.addSecs(30*60):
-            # reset breakfast to previous valid times
-            ts, te = self._temp_state["meal_windows"]["breakfast"]
-            b_start_edit.setTime(QTime.fromString(ts, "HH:mm"))
-            b_end_edit.setTime(QTime.fromString(te, "HH:mm"))
-            # update temp state just in case
-            self._temp_state["meal_windows"]["breakfast"] = (ts, te)
+        min_end_time = latest_day_start.addSecs(30 * 60)  # breakfast must end at least 30 mins after day start
+
+        if b_end_edit.time() < min_end_time:
+            # snap to min_end_time
+            snapped_end = self.util.round_qdatetime_to_5(min_end_time)
+            # keep start the same or adjust if it exceeds end
+            current_start = b_start_edit.time()
+            if current_start > snapped_end:
+                snapped_start = self.util.round_qdatetime_to_5(snapped_end.addSecs(-30 * 60))  # keep min 30 mins breakfast
+            else:
+                snapped_start = current_start
+
+            # update GUI while blocking signals
+            b_start_edit.blockSignals(True)
+            b_end_edit.blockSignals(True)
+            b_start_edit.setTime(snapped_start)
+            b_end_edit.setTime(snapped_end)
+            b_start_edit.blockSignals(False)
+            b_end_edit.blockSignals(False)
+
+            # update temp state
+            self._temp_state["meal_windows"]["breakfast"] = (
+                snapped_start.toString("HH:mm"),
+                snapped_end.toString("HH:mm")
+            )
             self._update_save_state()
 
-    def validate_meal_times(self):
-        meals = {
-            meal: (start.time(), end.time())
-            for meal, (start, end) in self.meal_edits.items()
-        }
 
-        # start < end
-        for meal, (start, end) in meals.items():
-            if start >= end:
-                ts, te = self._temp_state["meal_windows"][meal]
-                s, e = self.meal_edits[meal]
-                s.setTime(QTime.fromString(ts, "HH:mm"))
-                e.setTime(QTime.fromString(te, "HH:mm"))
-                return
-            
-        #minimum 30 mins
-        for meal, (start, end) in meals.items():
-            if start.addSecs(30 * 60) > end:
-                ts, te = self._temp_state["meal_windows"][meal]
-                s, e = self.meal_edits[meal]
-                s.setTime(QTime.fromString(ts, "HH:mm"))
-                e.setTime(QTime.fromString(te, "HH:mm"))
-                return
+    def enforce_breakfast_rule(self):
+        """Ensure breakfast ends at least 30 mins after day start, snapping to 5 mins."""
+        b_start_edit, b_end_edit = self.meal_edits["breakfast"]
 
-        # breakfast rule
-        b_start, b_end = meals["breakfast"]
         latest_day_start = max(
             self.start_time_edit.time(),
             self.weekend_start_edit.time()
         )
-        if b_end < latest_day_start.addSecs(30 * 60):
+
+        min_end_time = latest_day_start.addSecs(30 * 60)  # breakfast must end at least 30 mins after day start
+
+        if b_end_edit.time() < min_end_time:
+            today = QDate.currentDate()
+
+            # snap min_end_time to nearest 5 mins
+            min_end_dt = QDateTime(today, min_end_time)
+            snapped_end = self.util.round_qdatetime_to_5(min_end_dt).time()
+
+            # keep start the same or adjust if it exceeds end
+            current_start = b_start_edit.time()
+            if current_start > snapped_end:
+                start_dt = QDateTime(today, snapped_end.addSecs(-30 * 60))  # ensure at least 30 mins breakfast
+                snapped_start = self.util.round_qdatetime_to_5(start_dt).time()
+            else:
+                snapped_start = current_start
+
+            # update GUI while blocking signals
+            b_start_edit.blockSignals(True)
+            b_end_edit.blockSignals(True)
+            b_start_edit.setTime(snapped_start)
+            b_end_edit.setTime(snapped_end)
+            b_start_edit.blockSignals(False)
+            b_end_edit.blockSignals(False)
+
+            # update temp state
+            self._temp_state["meal_windows"]["breakfast"] = (
+                snapped_start.toString("HH:mm"),
+                snapped_end.toString("HH:mm")
+            )
+            self._update_save_state()
+
+    def validate_meal_times(self):
+        # Collect current meal times from QTimeEdits
+        meals = {
+            meal: (start_edit.time(), end_edit.time())
+            for meal, (start_edit, end_edit) in self.meal_edits.items()
+        }
+
+        # --- 1️⃣ Validate start < end & minimum 30 mins ---
+        for meal, (start, end) in meals.items():
+            if start >= end or start.addSecs(30 * 60) > end:
+                ts, te = self._temp_state["meal_windows"][meal]
+                s_edit, e_edit = self.meal_edits[meal]
+                s_edit.setTime(QTime.fromString(ts, "HH:mm"))
+                e_edit.setTime(QTime.fromString(te, "HH:mm"))
+                return
+
+        # --- 2️⃣ Enforce breakfast rule: breakfast must end ≥ 30 mins after latest day start ---
+        b_start, b_end = meals["breakfast"]
+        latest_day_start = max(self.start_time_edit.time(), self.weekend_start_edit.time())
+        min_end_time = latest_day_start.addSecs(30 * 60)
+        if b_end < min_end_time:
             ts, te = self._temp_state["meal_windows"]["breakfast"]
-            s, e = self.meal_edits["breakfast"]
-            s.setTime(QTime.fromString(ts, "HH:mm"))
-            e.setTime(QTime.fromString(te, "HH:mm"))
+            s_edit, e_edit = self.meal_edits["breakfast"]
+            s_edit.setTime(QTime.fromString(ts, "HH:mm"))
+            e_edit.setTime(QTime.fromString(te, "HH:mm"))
             return
 
-        # no overlap
+        # --- 3️⃣ Prevent overlap between meals ---
         for m1, (s1, e1) in meals.items():
             for m2, (s2, e2) in meals.items():
                 if m1 != m2 and s1 < e2 and e1 > s2:
                     ts, te = self._temp_state["meal_windows"][m1]
-                    s, e = self.meal_edits[m1]
-                    s.setTime(QTime.fromString(ts, "HH:mm"))
-                    e.setTime(QTime.fromString(te, "HH:mm"))
+                    s_edit, e_edit = self.meal_edits[m1]
+                    s_edit.setTime(QTime.fromString(ts, "HH:mm"))
+                    e_edit.setTime(QTime.fromString(te, "HH:mm"))
                     return
 
-        # VALID → commit to temp
+        # --- 4️⃣ Snap times to nearest 5 mins & update GUI + temp state ---
         for meal, (start, end) in meals.items():
+            # Convert QTime to QDateTime for snapping
+            dt_start = QDateTime(QDate.currentDate(), start)
+            dt_end = QDateTime(QDate.currentDate(), end)
+
+            snapped_start_dt = self.util.round_qdatetime_to_5(dt_start)
+            snapped_end_dt = self.util.round_qdatetime_to_5(dt_end)
+
+            snapped_start = snapped_start_dt.time()
+            snapped_end = snapped_end_dt.time()
+
+            # Update QTimeEdit widgets safely
+            s_edit, e_edit = self.meal_edits[meal]
+            s_edit.blockSignals(True)
+            e_edit.blockSignals(True)
+            s_edit.setTime(snapped_start)
+            e_edit.setTime(snapped_end)
+            s_edit.blockSignals(False)
+            e_edit.blockSignals(False)
+
+            # Update temp state
             self._temp_state["meal_windows"][meal] = (
-                self.util.round_to_5(start).toString("HH:mm"),
-                self.util.round_to_5(end).toString("HH:mm")
+                snapped_start.toString("HH:mm"),
+                snapped_end.toString("HH:mm")
             )
 
+        # --- 5️⃣ Save updated state ---
         self._update_save_state()
+
+
+
 
     # theme application
     def on_theme_changed(self):
         self._temp_state["theme"] = self.theme_box.currentText()
         self.util.apply_theme(self._temp_state["theme"])
+        self._update_save_state()
+
+    def on_meal_duration_changed(self, value):
+        # Snap value to nearest 5 minutes
+        snapped_minutes = self.util.snap_to_5_minutes(value)
+        
+        # Update spinbox safely
+        self.meal_duration_spin.blockSignals(True)
+        self.meal_duration_spin.setValue(snapped_minutes)
+        self.meal_duration_spin.blockSignals(False)
+
+        # Update temp state
+        self._temp_state["meal_duration"] = snapped_minutes
         self._update_save_state()

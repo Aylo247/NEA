@@ -61,8 +61,13 @@ class MainWindow(QMainWindow):
     def switch_to(self, index):
         if index != self.current_index:
             self.index_stack.add_item(self.current_index)
+
         self.stack.setCurrentIndex(index)
         self.current_index = index
+
+        widget = self.stack.currentWidget()
+        if hasattr(widget, "refresh"):
+            widget.refresh()
 
 
     def switch_back(self):
@@ -72,5 +77,9 @@ class MainWindow(QMainWindow):
         else:
             self.stack.setCurrentIndex(popped)
             self.current_index = popped
+
+            widget = self.stack.currentWidget()
+            if hasattr(widget, "refresh"):
+                widget.refresh()
 
 

@@ -1,8 +1,11 @@
 from PyQt5.QtWidgets import (
     QMessageBox, QPushButton, QHBoxLayout, QWidget,
-    QApplication)
+    QApplication, QTimeEdit
+    )
+
 from PyQt5.QtCore import QDateTime
 from datetime import timedelta, datetime
+
 
 
 class IndexStack():
@@ -33,7 +36,7 @@ class GUIUtils():
         self.settings = settings
 
     @staticmethod
-    def round_qdatetime_to_5(qdt: QDateTime) -> QDateTime:
+    def round_qdatetime_to_5(qdt):
         py = qdt.toPyDateTime()
 
         discard = timedelta(
@@ -47,6 +50,10 @@ class GUIUtils():
             py += timedelta(minutes=5)
 
         return QDateTime(py)
+    
+    @staticmethod
+    def snap_to_5_minutes(value):
+        return (value // 5) * 5
     
     @staticmethod
     def pop_up_confirm(parent, message: str) -> bool:
@@ -102,3 +109,8 @@ class GUIUtils():
 
         return bar, buttons
 
+class FiveMinuteTimeEdit(QTimeEdit):
+    def stepBy(self, steps: int):
+        # increment/decrement by 5 minutes per step
+        new_time = self.time().addSecs(steps * 5 * 60)
+        self.setTime(new_time)
