@@ -32,9 +32,10 @@ class Schedule:
                 "name": block.name,
                 "start": block.start.isoformat(),
                 "duration": block.duration.total_seconds() // 60,  # store duration in minutes
-                "location": block.location or "",
-                "notes": block.notes or "",
-                "is_fixed": block.is_fixed
+                "location": block.location,
+                "notes": block.notes,
+                "is_fixed": block.is_fixed,
+                "colour": block.colour
             }
 
             if block.type == "event":
@@ -64,6 +65,7 @@ class Schedule:
                     location = block_data.get("location"),
                     notes = block_data.get("notes"),
                     is_fixed = bool(block_data.get("is_fixed", False)),
+                    colour=block_data.get("colour"),
                     priority = int(block_data.get("priority", 0)),
                     repeatable = bool(block_data.get("repeatable", False)),
                     interval = int(block_data.get("interval", 0))
@@ -77,7 +79,8 @@ class Schedule:
                     deadline = datetime.fromisoformat(block_data["deadline"]) if block_data.get("deadline") else None,
                     location = block_data.get("location"),
                     notes = block_data.get("notes"),
-                    is_fixed = bool(block_data.get("is_fixed", False))
+                    is_fixed = bool(block_data.get("is_fixed", False)),
+                    colour=block_data.get("colour", "#453434")
                 )
                 block.is_completed = block_data.get("is_completed", False)
                 if block.is_completed:
@@ -85,14 +88,16 @@ class Schedule:
                 else: 
                     None
             self.blocks.append(block)
-
-    
+ 
     #gets all blocks for a specific day, week or month
     def day(self, date):
+        if isinstance(date, datetime):
+            date = date.date()
         day_blocks = []
         for block in self.blocks:
             if block.start.date() == date:
                 day_blocks.append(block)
+                print(block.name)
         return day_blocks
 
     def week(self, week_start_date):

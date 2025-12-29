@@ -1,28 +1,34 @@
 {
   "light": {
     "font": "Helvetica Neue",
-    "window_bg": "#E6D8C2",
-    "background": "#F3E8D7",
-    "groupbox_bg": "#EADFC6",
-    "label_color": "#3E3228",
-    "button_bg": "#D8A86E",
-    "button_fg": "#FFFFFF",
-    "button_hover": "#D2A05C",
-    "border_color": "#D6C6B3",
-    "calendar_grid_light": "#E3D9CB",
-    "calendar_grid_dark": "#B5A691"
+    "window_bg": "#FFFFFF",
+    "background": "#F2F2F2",
+    "groupbox_bg": "#E5E5E5",
+    "label_color": "#000000",
+    "font_color": "#000000",
+    "button_bg": "#E0E0E0",
+    "button_fg": "#000000",
+    "button_hover": "#D6D6D6",
+    "border_color": "#C0C0C0",
+    "calendar_grid_light": "#EAEAEA",
+    "calendar_grid_dark": "#C0C0C0",
+    "default_block": "#007AFF",
+    "current_time_pointer": "#FF3B30"
   },
   "dark": {
     "font": "Helvetica Neue",
-    "window_bg": "#1F120D",
-    "background": "#291610",
-    "groupbox_bg": "#3A2214",
-    "label_color": "#3E3228",
-    "button_bg": "#52331F",
+    "window_bg": "#1C1C1E",
+    "background": "#2C2C2E",
+    "groupbox_bg": "#3A3A3C",
+    "label_color": "#FFFFFF",
+    "font_color": "#FFFFFF",
+    "button_bg": "#3A3A3C",
     "button_fg": "#FFFFFF",
-    "button_hover": "#6C492E",
-    "border_color": "#4A331F",
-    "calendar_grid_light": "#72523A",
-    "calendar_grid_dark": "#3F2A1C"
+    "button_hover": "#505053",
+    "border_color": "#545457",
+    "calendar_grid_light": "#4A4A4C",
+    "calendar_grid_dark": "#2C2C2E",
+    "default_block": "#0A84FF",
+    "current_time_pointer": "#FF453A"
   }
 }

@@ -19,10 +19,6 @@ class MonthView(QWidget):
     back = pyqtSignal()
 
     def __init__(self, schedule, util):
-        """
-        schedule: your Schedule object containing tasks
-        util: your utility object (for theme)
-        """
         super().__init__()
         self.schedule = schedule
         self.util = util
@@ -34,19 +30,16 @@ class MonthView(QWidget):
         # Main layout
         main_layout = QVBoxLayout(self)
 
+        # Top bar (back, todo, settings)
         top_bar, buttons = self.util.create_top_bar(
-            show_back=True,
-            show_todo=True,
-            show_settings=True
+            show_back=True, show_todo=True, show_settings=True
         )
-
+        buttons["back"].clicked.connect(self.back.emit)
         buttons["todo"].clicked.connect(self.open_todo.emit)
         buttons["settings"].clicked.connect(self.open_settings.emit)
-        buttons["back"].clicked.connect(self.back.emit)
-
         main_layout.addWidget(top_bar)
 
-        # Top header: Month name and navigation
+        # Month navigation header
         header_layout = QHBoxLayout()
         self.prev_btn = QPushButton("<")
         self.next_btn = QPushButton(">")
@@ -62,105 +55,86 @@ class MonthView(QWidget):
 
         # Calendar grid
         self.calendar_table = QTableWidget(6, 7)
-        days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         self.calendar_table.setHorizontalHeaderLabels(days)
         self.calendar_table.horizontalHeader().setVisible(True)
-
         self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        self.calendar_table.horizontalHeader().setDefaultAlignment(Qt.AlignCenter)
-        
         self.calendar_table.verticalHeader().setVisible(False)
-        
+        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.calendar_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.calendar_table.setSelectionMode(QAbstractItemView.NoSelection)
-        self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.calendar_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-        # Let the widget itself expand
-        self.calendar_table.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding
-)
-        main_layout.addWidget(self.calendar_table)
-
         self.calendar_table.cellClicked.connect(self.on_cell_clicked)
+        self.calendar_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        main_layout.addWidget(self.calendar_table)
 
         self.refresh_month_view()
         self.util.apply_theme()
 
     def refresh_month_view(self):
-        """Builds the 6-week calendar for the current month"""
-        self.month_label.setText(f"{calendar.month_name[self.current_month].lower()} {self.current_year}")
+        """Populate the 6x7 calendar grid for the current month."""
+        self.month_label.setText(f"{calendar.month_name[self.current_month]} {self.current_year}")
 
-        # Compute first day
+        # Start display from the Monday of the week containing the 1st
         month_start = date(self.current_year, self.current_month, 1)
         display_start = month_start
-        while display_start.strftime("%A") != "Monday":
+        while display_start.weekday() != 0:  # 0 = Monday
             display_start -= timedelta(days=1)
 
-        # Group tasks by day
+        # Get tasks for the current month
         month_blocks = self.schedule.month(month_start)
         tasks_by_day = defaultdict(list)
         for block in month_blocks:
-            tasks_by_day[block.start.day].append(block)
+            tasks_by_day[block.start.date()].append(block)
 
-        # Get grid color from theme
+        # Grid color from theme
         theme_name = getattr(self.util.settings, "theme", "light")
         grid_color = self.util.tm.themes.get(theme_name, {}).get("calendar_grid", "#AAAAAA")
 
-        # Fill 6x7 grid
+        # Populate cells
         for week in range(6):
             for day_col in range(7):
-                cell_widget = QWidget()
-                cell_layout = QVBoxLayout(cell_widget)
-                cell_layout.setContentsMargins(0, 0, 0, 0)
-                cell_layout.setSpacing(0)
-
                 cell_date = display_start + timedelta(days=week*7 + day_col)
-                day_number = cell_date.day
                 is_current_month = (cell_date.month == self.current_month)
 
-                # Day number
-                day_label = QLabel(str(day_number))
-                day_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-                day_label.setStyleSheet("font-weight: bold;" if is_current_month else "color: #AAA;")
-                cell_layout.addWidget(day_label, alignment=Qt.AlignTop | Qt.AlignLeft)
+                cell_widget = QWidget()
+                cell_layout = QVBoxLayout(cell_widget)
+                cell_layout.setContentsMargins(2, 2, 2, 2)
+                cell_layout.setSpacing(0)
 
-                # Tasks
-                if is_current_month and day_number in tasks_by_day:
-                    day_tasks = tasks_by_day[day_number]
-                    day_tasks.sort(key=lambda t: t.duration.total_seconds(), reverse=True)
-                    for task in day_tasks[:3]:
-                        task_label = QLabel(task.name)
-                        task_label.setStyleSheet("font-size: 10px;")
-                        task_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-                        cell_layout.addWidget(task_label)
-                
+                # Day number
+                day_label = QLabel(str(cell_date.day))
+                day_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+                day_label.setStyleSheet(
+                    "font-weight: bold;" if is_current_month else "color: #AAA;"
+                )
+                cell_layout.addWidget(day_label)
+
+                # Tasks (only show for actual month, optional)
+                day_tasks = tasks_by_day.get(cell_date, [])
+                day_tasks.sort(key=lambda t: t.duration.total_seconds(), reverse=True)
+                for task in day_tasks[:3]:
+                    task_label = QLabel(task.name)
+                    task_label.setStyleSheet("font-size: 10px;")
+                    task_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+                    cell_layout.addWidget(task_label)
+
                 cell_layout.addStretch()
 
-                # Store date info
+                # Store date info for all cells
+                cell_widget.setProperty("date", cell_date)
                 cell_widget.setProperty("is_current_month", is_current_month)
-                if is_current_month:
-                    cell_widget.setProperty("date", cell_date)
 
-                # Apply grid borders directly here
+                # Apply cell borders
                 cell_widget.setStyleSheet(f"""
                     QWidget {{
-                        border-top: 1px solid {grid_color};
-                        border-left: 1px solid {grid_color};
-                        border-bottom: 1px solid {grid_color};
-                        border-right: 1px solid {grid_color};
+                        border: 1px solid {grid_color};
                     }}
                 """)
 
                 self.calendar_table.setCellWidget(week, day_col, cell_widget)
 
-
     def change_month(self, delta):
-        """Change the current month by delta (+1 or -1)"""
+        """Change the current month by delta (+1 or -1)."""
         new_month = self.current_month + delta
         new_year = self.current_year
         if new_month < 1:
@@ -174,10 +148,12 @@ class MonthView(QWidget):
         self.refresh_month_view()
 
     def on_cell_clicked(self, row, col):
+        """Emit the date for the clicked cell, even if out-of-month."""
         cell = self.calendar_table.cellWidget(row, col)
-        if cell and cell.property("is_current_month"):
+        if cell:
             day_date = cell.property("date")
             if day_date:
+                print(f"Clicked on date: {day_date}")
                 self.open_day.emit(day_date)
 
 class ToDoListView(QWidget):
@@ -237,46 +213,53 @@ class ToDoListView(QWidget):
     def refresh(self):
         if self.show_history:
             tasks = [t for t in self.schedule.ToDoList if t.is_completed]
-            self.table.setColumnCount(4)
-            self.table.setHorizontalHeaderLabels(["name", "deadline", "duration", "date completed"])
+            self.table.setColumnCount(5)
+            self.table.setHorizontalHeaderLabels(["Done", "Name", "Deadline", "Duration", "Date Completed"])
         else:
             tasks = [t for t in self.schedule.ToDoList if not t.is_completed]
-            self.table.setColumnCount(4)
-            self.table.setHorizontalHeaderLabels(["name", "deadline", "duration", "start time"])
+            self.table.setColumnCount(5)
+            self.table.setHorizontalHeaderLabels(["Done", "Name", "Deadline", "Duration", "Start Time"])
+
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        self.table.setColumnWidth(0, 40)  # width just enough for checkbox
+
+        # Make the rest of the columns stretch equally
+        for col in range(1, self.table.columnCount()):
+            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.Stretch)
 
         self.table.setRowCount(len(tasks))
 
         for row, task in enumerate(tasks):
-            # Create QTableWidgetItem for sorting
-            item_name = QTableWidgetItem(task.name)
-            item_name.setData(Qt.UserRole, task.name.lower())  # case-insensitive sort
-            self.table.setItem(row, 0, item_name)
-
-            # Add the checkbox as cell widget
-            checkbox = QCheckBox(task.name)
+            # Column 0: checkbox
+            checkbox = QCheckBox()
             checkbox.setChecked(task.is_completed)
             checkbox.stateChanged.connect(lambda state, t=task: self.on_checkbox_changed(state, t))
             self.table.setCellWidget(row, 0, checkbox)
 
-            # Deadline
-            deadline_text = task.deadline.strftime("%d/%m/%Y %H:%M") if task.deadline else "-"
-            self.table.setItem(row, 1, QTableWidgetItem(deadline_text))
+            # Column 1: task name
+            name_item = QTableWidgetItem(task.name)
+            self.table.setItem(row, 1, name_item)
 
-            # Duration in hours/minutes
+            # Column 2: Deadline
+            deadline_text = task.deadline.strftime("%d/%m/%Y %H:%M") if task.deadline else "-"
+            self.table.setItem(row, 2, QTableWidgetItem(deadline_text))
+
+            # Column 3: Duration
             hours = task.duration.total_seconds() // 3600
             minutes = (task.duration.total_seconds() % 3600) // 60
             duration_text = f"{int(hours)}h {int(minutes)}m"
-            self.table.setItem(row, 2, QTableWidgetItem(duration_text))
+            self.table.setItem(row, 3, QTableWidgetItem(duration_text))
 
-            # Date Completed (only for history)
+            # Column 4: Start/Completed
             if self.show_history:
                 completed_str = task.completed_at.strftime("%d/%m/%Y %H:%M") if task.completed_at else "-"
-                self.table.setItem(row, 3, QTableWidgetItem(completed_str))
+                self.table.setItem(row, 4, QTableWidgetItem(completed_str))
             else:
                 start_str = task.start.strftime("%d/%m/%Y %H:%M")
-                self.table.setItem(row, 3, QTableWidgetItem(start_str))
-
+                self.table.setItem(row, 4, QTableWidgetItem(start_str))
         
+
+
         self.util.apply_theme()
 
     def filter_tasks(self, text):
@@ -330,7 +313,7 @@ class ToDoListView(QWidget):
                 self.sort_state[c] = 0
 
     def on_add_task(self):
-        dialog = AddTaskDialog(self)
+        dialog = AddTaskDialog(utils=self.util, parent=self)
         if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
             if not data["name"]:  # enforce name

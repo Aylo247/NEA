@@ -9,13 +9,23 @@ CustomBlock class for handling user-defined block templates.
 
 #the base block class that other block types inherit from
 class Block(): 
-    def __init__(self, name, start, duration, location = None, notes = None , is_fixed = False):
+    def __init__(
+            self,
+            name, 
+            start, 
+            duration, 
+            location = None, 
+            notes = None , 
+            is_fixed = False,
+            colour = None
+            ):
         self.name = name  #e.g., "Doctor Appointment", "Study Session"
         self.start = start #datetime object
         self.duration = duration #timedelta object
         self.location = location #e.g., "Room 101", "Downtown Clinic"
         self.notes = notes #additional details
         self.is_fixed = is_fixed #True if the block cannot be moved or resized
+        self.colour = colour #hex colour code for UI representation
 
     @property
     def end(self):
@@ -24,17 +34,35 @@ class Block():
 #the event block that is fixed and cannot be moved
 class eventblock(Block):
 
-    def __init__(self, name, start, duration, location = "", notes = "" , is_fixed = True, priority = 0, repeatable = False, interval = 0):
-        super().__init__(name, start, duration, location, notes, is_fixed)
-        self.priority = priority #0 for lowest an 2 for highest, for exambple a doctor appointment would be 2 but a lesson would be 1
+    def __init__(self, 
+                name, 
+                start, 
+                duration, 
+                location = "", 
+                notes = "" , 
+                is_fixed = True,
+                colour = None, 
+                priority = 0, 
+                repeatable = False, 
+                interval = 0):
+        super().__init__(name, start, duration, location, notes, is_fixed, colour)
+        self.priority = priority #0 for lowest and 2 for highest, for exambple a doctor appointment would be 2 but a lesson would be 1
         self.repeatable = repeatable
         self.type = "event"
         self.interval = interval
 
 #the task block that is movable and can be marked complete or incomplete
 class task(Block):
-    def __init__(self, name, start, duration, deadline=None, location = "", notes = "" , is_fixed = False):
-        super().__init__(name, start, duration, location, notes, is_fixed)
+    def __init__(self, 
+                 name,
+                 start, 
+                 duration, 
+                 deadline=None, 
+                 location = "", 
+                 notes = "" , 
+                 is_fixed = False,
+                 colour = None):
+        super().__init__(name, start, duration, location, notes, is_fixed, colour)
         self.deadline = deadline
         self.is_completed = False
         self.completed_at = None
@@ -83,10 +111,11 @@ class CustomBlock():
             location = params.get("location", "")
             notes = params.get("notes", "")
             is_fixed = bool(params.get("is_fixed", True))
+            colour = params.get("colour", None)
             priority = int(params.get("priority", 0))
             repeatable = bool(params.get("repeatable", False))
             interval = int(params.get("interval") if repeatable else 0)
-            return eventblock(name, start, duration, location, notes, is_fixed, priority, repeatable, interval)
+            return eventblock(name, start, duration, location, notes, is_fixed, colour, priority, repeatable, interval)
         
         elif params.get("type") == "task":
             name = params.get("name")
@@ -96,7 +125,8 @@ class CustomBlock():
             location = params.get("location", "")
             notes = params.get("notes", "")
             is_fixed = bool(params.get("is_fixed", False))
-            return task(name, start, duration, deadline, location, notes, is_fixed)
+            colour = params.get("colour", None)
+            return task(name, start, duration, deadline, location, notes, is_fixed, colour)
         
         else:
             raise ValueError("Unknown block type")

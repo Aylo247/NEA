@@ -114,14 +114,7 @@ class Settings:
             end = datetime.combine(dt.date(), self.end_time)
         return start, end
 
-
 class ThemeManager:
-    """ 
-    Manages application-wide visual themes.
-    Loads static theme definitions from a JSON file
-    and provides access to the active theme based on user settings.
-    """
-
     def __init__(self, themes_file="themes.json"):
         self.themes_file = themes_file
         self.themes = self._load_themes()
@@ -134,15 +127,9 @@ class ThemeManager:
             return {}
 
     def get_theme(self, theme_name):
-        """
-        Returns a theme dictionary given a theme name from Settings.
-        Falls back safely if the theme does not exist.
-        """
         if not theme_name:
             return {}
-
         t = self.themes.get(theme_name.lower(), {})
-
         return self.theme_to_qss(t)
     
     def get_theme_dict(self, theme_name):
@@ -151,8 +138,7 @@ class ThemeManager:
         return self.themes.get(theme_name.lower(), {})
     
     def theme_to_qss(self, theme):
-        return f"""
-        * {{
+        return f""" {{
             font-family: "{theme['font']}";
         }}
 
@@ -162,7 +148,6 @@ class ThemeManager:
 
         QWidget {{
             background-color: {theme['background']};
-            color: {theme['label_color']};
         }}
 
         QGroupBox {{
@@ -173,8 +158,7 @@ class ThemeManager:
         }}
 
         QLabel {{
-      
-            color: {theme['label_color']};
+            color: {theme.get('label_color', '#000000')};
         }}
 
         QPushButton {{
@@ -187,6 +171,11 @@ class ThemeManager:
 
         QPushButton:hover {{
             background-color: {theme['button_hover']};
+        }}
+
+        QLineEdit, QTextEdit, QComboBox {{
+            color: {theme.get('label_color', '#000000')};
+            background-color: {theme['window_bg']};
         }}
         """
 

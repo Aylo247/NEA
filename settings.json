@@ -21,9 +21,9 @@
             ]
         },
         "break_duration": 30.0,
+        "history_duration": 7.0,
         "break_interval": 90.0,
         "meal_duration": 30.0,
-        "history_duration": 7.0,
         "holiday_ranges": []
     }
 }

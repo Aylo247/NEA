@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from PyQt5.QtWidgets import QApplication
 from utils import GUIUtils
 import sys
+from datetime import date, time, timedelta, datetime
 
 def main():
     app = QApplication(sys.argv)
@@ -19,42 +20,161 @@ def main():
     # Initialize schedule
     schedule = Schedule(settings)
 
-    # Add some test tasks and events
-    # Add some new test tasks and events
 
-    schedule.add_block(eventblock(
+    today = date.today()
+    blocks = []
+
+    # --- Monday ---
+    blocks.append(task(
+        name="Emails & Admin",
+        start=datetime.combine(today, time(9, 0)),
+        duration=timedelta(hours=1),
+        colour="#1E90FF",
+        deadline=datetime.combine(today, time(12, 0))
+    ))
+    blocks.append(eventblock(
         name="Team Meeting",
-        start=datetime.now() + timedelta(hours=4),
-        duration=timedelta(minutes=45),
-        location="Office Zoom",
-        notes="Weekly progress sync"
+        start=datetime.combine(today, time(10, 30)),
+        duration=timedelta(hours=1),
+        colour="#32CD32",
+        priority=2
+    ))
+    blocks.append(task(
+        name="Project Work",
+        start=datetime.combine(today, time(13, 0)),
+        duration=timedelta(hours=3),
+        colour="#FFD700",
+        deadline=datetime.combine(today, time(18, 0))
     ))
 
-    schedule.add_block(eventblock(
-        name="Gym Session",
-        start=datetime.now() + timedelta(hours=6),
-        duration=timedelta(minutes=75),
-        location="Local Gym",
-        notes="Leg day"
+    # --- Tuesday ---
+    blocks.append(task(
+        name="Coding Session",
+        start=datetime.combine(today + timedelta(days=1), time(9, 30)),
+        duration=timedelta(hours=2),
+        colour="#1E90FF",
+        deadline=datetime.combine(today + timedelta(days=1), time(12, 30))
+    ))
+    blocks.append(eventblock(
+        name="Lunch with Client",
+        start=datetime.combine(today + timedelta(days=1), time(12, 0)),
+        duration=timedelta(hours=1),
+        colour="#32CD32",
+        priority=1
+    ))
+    blocks.append(task(
+        name="Documentation",
+        start=datetime.combine(today + timedelta(days=1), time(14, 0)),
+        duration=timedelta(hours=2),
+        colour="#FFD700",
+        deadline=datetime.combine(today + timedelta(days=1), time(16, 0))
     ))
 
-    schedule.add_block(task(
-        name="Finish Homework",
-        start=None,
-        duration=timedelta(minutes=60),
-        deadline=datetime.now() + timedelta(days=1),
-        location="Desk",
-        notes="Math and Physics"
+    # --- Wednesday ---
+    blocks.append(task(
+        name="Gym",
+        start=datetime.combine(today + timedelta(days=2), time(7, 0)),
+        duration=timedelta(hours=1),
+        colour="#FF4500",
+        deadline=datetime.combine(today + timedelta(days=2), time(8, 0))
+    ))
+    blocks.append(task(
+        name="Project Work",
+        start=datetime.combine(today + timedelta(days=2), time(9, 0)),
+        duration=timedelta(hours=4),
+        colour="#1E90FF",
+        deadline=datetime.combine(today + timedelta(days=2), time(17, 0))
+    ))
+    blocks.append(eventblock(
+        name="Team Sync",
+        start=datetime.combine(today + timedelta(days=2), time(15, 0)),
+        duration=timedelta(hours=1),
+        colour="#32CD32",
+        priority=2
     ))
 
-    schedule.add_block(task(
-        name="Grocery Shopping",
-        start= None,
-        duration=timedelta(minutes=90),
-        deadline=datetime.now() + timedelta(days=2),
-        location="Supermarket",
-        notes="Buy ingredients for dinner"
+    # --- Thursday ---
+    blocks.append(task(
+        name="Emails & Admin",
+        start=datetime.combine(today + timedelta(days=3), time(8, 0)),
+        duration=timedelta(hours=1),
+        colour="#1E90FF",
+        deadline=datetime.combine(today + timedelta(days=3), time(10, 0))
     ))
+    blocks.append(eventblock(
+        name="Doctor Appointment",
+        start=datetime.combine(today + timedelta(days=3), time(10, 30)),
+        duration=timedelta(hours=1),
+        colour="#FF6347",
+        priority=2
+    ))
+    blocks.append(task(
+        name="Research",
+        start=datetime.combine(today + timedelta(days=3), time(11, 30)),
+        duration=timedelta(hours=3),
+        colour="#FFD700",
+        deadline=datetime.combine(today + timedelta(days=3), time(17, 0))
+    ))
+
+    # --- Friday ---
+    blocks.append(task(
+        name="Team Retrospective",
+        start=datetime.combine(today + timedelta(days=4), time(9, 0)),
+        duration=timedelta(hours=1),
+        colour="#32CD32",
+        deadline=datetime.combine(today + timedelta(days=4), time(10, 0))
+    ))
+    blocks.append(task(
+        name="Coding Session",
+        start=datetime.combine(today + timedelta(days=4), time(10, 30)),
+        duration=timedelta(hours=2),
+        colour="#1E90FF",
+        deadline=datetime.combine(today + timedelta(days=4), time(12, 30))
+    ))
+    blocks.append(eventblock(
+        name="Client Call",
+        start=datetime.combine(today + timedelta(days=4), time(14, 0)),
+        duration=timedelta(hours=1),
+        colour="#32CD32",
+        priority=1
+    ))
+
+    # --- Saturday ---
+    blocks.append(task(
+        name="Weekend Chores",
+        start=datetime.combine(today + timedelta(days=5), time(9, 0)),
+        duration=timedelta(hours=2),
+        colour="#FFA500",
+        deadline=datetime.combine(today + timedelta(days=5), time(11, 0))
+    ))
+    blocks.append(task(
+        name="Personal Project",
+        start=datetime.combine(today + timedelta(days=5), time(11, 30)),
+        duration=timedelta(hours=3),
+        colour="#FFD700",
+        deadline=datetime.combine(today + timedelta(days=5), time(15, 0))
+    ))
+
+    # --- Sunday ---
+    blocks.append(task(
+        name="Relax & Reading",
+        start=datetime.combine(today + timedelta(days=6), time(10, 0)),
+        duration=timedelta(hours=3),
+        colour="#87CEFA",
+        deadline=datetime.combine(today + timedelta(days=6), time(13, 0))
+    ))
+    blocks.append(eventblock(
+        name="Family Dinner",
+        start=datetime.combine(today + timedelta(days=6), time(18, 0)),
+        duration=timedelta(hours=2),
+        colour="#FF6347",
+        priority=1
+    ))
+
+
+    for block in blocks:
+            schedule.add_block(block)
+
 
 
     # Initialize settings and persistence
