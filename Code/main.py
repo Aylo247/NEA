@@ -181,9 +181,13 @@ def main():
     thememanager = ThemeManager()  # use your real persistence
     util = GUIUtils(thememanager, settings)
 
+    app.setStyle("Fusion")
+
     # Create main window
     window = MainWindow(schedule, settings, persistence_manager, util)
     window.show()
+
+    util.apply_theme()
 
     sys.exit(app.exec_())
 

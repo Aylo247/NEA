@@ -20,6 +20,7 @@ class MainWindow(QMainWindow):
 
         # Central widget
         self.central = QWidget()
+        self.central.setObjectName("central")
         self.setCentralWidget(self.central)
 
         self.main_layout = QVBoxLayout(self.central)
@@ -55,6 +56,7 @@ class MainWindow(QMainWindow):
         self.day_view_container.open_todo.connect(lambda: self.switch_to(2))
         self.day_view_container.open_month.connect(lambda: self.switch_to(0))
 
+        self.setObjectName("MainWindow")
 
         # Apply themes
         self.util.apply_theme()

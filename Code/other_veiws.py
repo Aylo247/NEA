@@ -65,6 +65,9 @@ class MonthView(QWidget):
         self.calendar_table.setSelectionMode(QAbstractItemView.NoSelection)
         self.calendar_table.cellClicked.connect(self.on_cell_clicked)
         self.calendar_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # self.calendar_table.setShowGrid(False)
+        # self.calendar_table.setFrameShape(QFrame.NoFrame)
+
         main_layout.addWidget(self.calendar_table)
 
         self.refresh_month_view()
@@ -124,13 +127,6 @@ class MonthView(QWidget):
                 cell_widget.setProperty("date", cell_date)
                 cell_widget.setProperty("is_current_month", is_current_month)
 
-                # Apply cell borders
-                cell_widget.setStyleSheet(f"""
-                    QWidget {{
-                        border: 1px solid {grid_color};
-                    }}
-                """)
-
                 self.calendar_table.setCellWidget(week, day_col, cell_widget)
 
     def change_month(self, delta):
@@ -153,7 +149,6 @@ class MonthView(QWidget):
         if cell:
             day_date = cell.property("date")
             if day_date:
-                print(f"Clicked on date: {day_date}")
                 self.open_day.emit(day_date)
 
 class ToDoListView(QWidget):

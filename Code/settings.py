@@ -138,8 +138,16 @@ class ThemeManager:
         return self.themes.get(theme_name.lower(), {})
     
     def theme_to_qss(self, theme):
-        return f""" {{
+        def c(key, fallback):
+            return theme.get(key, fallback)
+
+        font = theme.get("font", "Helvetica Neue")
+
+
+        return f"""
+        * {{
             font-family: "{theme['font']}";
+            color: {theme.get('font_color', theme.get('label_color', '#000000'))};
         }}
 
         QMainWindow {{
@@ -148,17 +156,20 @@ class ThemeManager:
 
         QWidget {{
             background-color: {theme['background']};
+            color: {theme.get('label_color', '#000000')};
         }}
 
         QGroupBox {{
             background-color: {theme['groupbox_bg']};
             border: 1px solid {theme['border_color']};
             border-radius: 6px;
-            margin-top: 6px;
+            margin-top: 27px;
+            padding: 6px;
         }}
 
         QLabel {{
             color: {theme.get('label_color', '#000000')};
+            background-color: transparent;
         }}
 
         QPushButton {{
@@ -173,11 +184,51 @@ class ThemeManager:
             background-color: {theme['button_hover']};
         }}
 
-        QLineEdit, QTextEdit, QComboBox {{
-            color: {theme.get('label_color', '#000000')};
-            background-color: {theme['window_bg']};
+        QLineEdit, QTextEdit {{
+            color: {theme.get('lineedit_fg', '#000000')};
+            background-color: {theme.get('lineedit_bg', '#FFFFFF')};
+            border: 1px solid {theme['border_color']};
+            border-radius: 4px;
+            padding: 2px 4px;
+        }}
+
+        QComboBox {{
+            color: {theme.get('combobox_fg', '#000000')};
+            background-color: {theme.get('combobox_bg', '#FFFFFF')};
+            border: 1px solid {theme['border_color']};
+            border-radius: 4px;
+            padding: 2px 4px;
+        }}
+
+        QCheckBox {{
+            color: {theme.get('checkbox_fg', '#000000')};
+            background-color: {theme.get('checkbox_bg', '#FFFFFF')};
+        }}
+
+        QScrollBar:vertical, QScrollBar:horizontal {{
+            background: {theme.get('scrollbar_bg', '#E0E0E0')};
+        }}
+        QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{
+            background: {theme.get('scrollbar_fg', '#C0C0C0')};
+            border-radius: 4px;
+        }}
+
+        QTableWidget {{
+            background-color: {theme.get('table_bg', '#FFFFFF')};
+            color: {theme.get('table_fg', '#000000')};
+            gridline-color: {theme.get('calendar_grid_light', '#EAEAEA')};
+        }}
+
+        QHeaderView::section {{
+            background-color: {theme.get('table_header_bg', '#E5E5E5')};
+            color: {theme.get('table_header_fg', '#000000')};
+            border: 1px solid {theme['border_color']};
+            padding: 4px;
+            font-weight: bold;
         }}
         """
+
+
 
 
     def get_colour(self, theme_name, key, fallback="#000000"):

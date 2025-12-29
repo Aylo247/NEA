@@ -1,6 +1,6 @@
 {
     "settings": {
-        "theme": "dark",
+        "theme": "light",
         "start_time": "07:00:00",
         "end_time": "22:00:00",
         "weekend_start": "09:00:00",

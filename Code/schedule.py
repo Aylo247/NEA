@@ -97,7 +97,6 @@ class Schedule:
         for block in self.blocks:
             if block.start.date() == date:
                 day_blocks.append(block)
-                print(block.name)
         return day_blocks
 
     def week(self, week_start_date):

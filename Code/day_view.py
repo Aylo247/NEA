@@ -62,11 +62,8 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
 
     def set_current_day(self, date):
         self.current_day = date
-        print(f"self.current_day = {self.current_day}")
         self.load_blocks_for_day()   # update items for the day
         self.update()
-        print(f"self.items = {self.items}")
-        print(f"self.schedule.day(self.current_day) = {self.schedule.day(self.current_day)}")
         QTimer.singleShot(0, self.scroll_to_current_time)
 
     def load_blocks_for_day(self):
@@ -75,19 +72,33 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         self.items = self.schedule.day(self.current_day)
 
     def draw_block(self, item, rect, painter,alpha=200):
-
         # vertical triple-dot
         dot_x = rect.right() - 12
-        dot_y = rect.top() + 4
+        dot_y = rect.top() + 8
         dot_radius = 2
         dot_spacing = 6
-        painter.setBrush(Qt.white)
-        for i in range(3):
-            painter.drawEllipse(QPoint(dot_x, dot_y + i * dot_spacing), dot_radius, dot_radius)
 
         # prepare text info
         if isinstance(item, dict):
             color = self.col_block_default
+
+            # Determine dot colour based on block colour brightness
+            h, s, v, _ = color.getHsvF()  # get HSV values
+
+            # adjust brightness
+            if v > 0.5:
+                # block is light → make dots darker
+                v = max(0, v - 0.4)
+            else:
+                # block is dark → make dots lighter
+                v = min(1, v + 0.4)
+
+            dot_color = QColor()
+            dot_color.setHsvF(h, s, v, 1.0)
+            painter.setBrush(dot_color)
+            for i in range(3):
+                painter.drawEllipse(QPoint(dot_x, dot_y + i * dot_spacing), dot_radius, dot_radius)
+
             color.setAlpha(alpha)
             painter.setBrush(color)
             painter.setPen(Qt.NoPen)
@@ -102,6 +113,24 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
             ]
         else:
             color = QColor(item.colour) if getattr(item, "colour", None) else self.col_block_default
+
+            # Determine dot colour based on block colour brightness
+            h, s, v, a = color.getHsvF()  # get HSV values
+
+            # adjust brightness
+            if v > 0.5:
+                # block is light → make dots darker
+                v = max(0, v - 0.4)
+            else:
+                # block is dark → make dots lighter
+                v = min(1, v + 0.4)
+
+            dot_color = QColor()
+            dot_color.setHsvF(h, s, v, 1.0)
+            painter.setBrush(dot_color)
+            for i in range(3):
+                painter.drawEllipse(QPoint(dot_x, dot_y + i * dot_spacing), dot_radius, dot_radius)
+
             color.setAlpha(alpha)
             painter.setBrush(color)
             painter.setPen(Qt.NoPen)

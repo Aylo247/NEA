@@ -42,7 +42,8 @@ class DayViewContainer(QWidget):
         super().__init__()
 
         self.setWindowTitle("DayView with Draggable Blocks")
-        main_layout = QVBoxLayout(self)  # vertical layout to stack header + content
+        # --- Main vertical layout ---
+        main_layout = QVBoxLayout(self)  # layout for header + content
         main_layout.setContentsMargins(0, 0, 0, 0)
 
         # --- HEADER ---
@@ -50,6 +51,16 @@ class DayViewContainer(QWidget):
             show_back=True, show_settings=True, show_todo=True, show_month=True
         )
         main_layout.addWidget(header_bar)
+
+        # --- Connect header buttons ---
+        if "back" in buttons:
+            buttons["back"].clicked.connect(self.back.emit)
+        if "settings" in buttons:
+            buttons["settings"].clicked.connect(self.open_settings.emit)
+        if "todo" in buttons:
+            buttons["todo"].clicked.connect(self.open_todo.emit)
+        if "month" in buttons:
+            buttons["month"].clicked.connect(self.open_month.emit)
 
         day_header_layout = QHBoxLayout()
         self.prev_day_btn = QPushButton("<")
@@ -61,36 +72,26 @@ class DayViewContainer(QWidget):
         day_header_layout.addWidget(self.next_day_btn)
         main_layout.addLayout(day_header_layout)
 
-
-        # --- Connect buttons ---
+        # --- Connect day navigation ---
         self.prev_day_btn.clicked.connect(self.go_to_prev_day)
         self.next_day_btn.clicked.connect(self.go_to_next_day)
 
-        # --- Connect buttons ---
-        if "back" in buttons:
-            buttons["back"].clicked.connect(self.back.emit)
-        if "settings" in buttons:
-            buttons["settings"].clicked.connect(self.open_settings.emit)
-        if "todo" in buttons:
-            buttons["todo"].clicked.connect(self.open_todo.emit)
-        if "month" in buttons:
-            buttons["month"].clicked.connect(self.open_month.emit)
-
-        layout = QHBoxLayout(self)
+        # --- CONTENT ---
+        content_layout = QHBoxLayout()  # nested layout for DayView + BlockPool
 
         # Left: DayView with scroll
         self.day_view = DayView(schedule, utils)
         scroll = DayViewScroll(self.day_view)
         scroll.setAcceptDrops(True)
         scroll.viewport().setAcceptDrops(True)
-        layout.addWidget(scroll, 3)
-
-        self.update_day_label()
+        content_layout.addWidget(scroll, 3)
 
         # Right: BlockPool
         self.block_pool = BlockPool(self.day_view)
-        layout.addWidget(self.block_pool, 1)
-        main_layout.addLayout(layout)
+        content_layout.addWidget(self.block_pool, 1)
+
+        main_layout.addLayout(content_layout)  # add nested layout to main_layout
+
 
     def set_current_day(self, day_date):
         self.day_view.set_current_day(day_date)

@@ -170,7 +170,7 @@ class AddEventDialog(QDialog):
         self.start_input = QDateTimeEdit()
         self.start_input.setCalendarPopup(True)
 
-        self.colour = "#453434"
+        self.colour = self.utils.tm.get_colour(self.utils.settings.theme, "default_block")
 
         self.colour_dialog = QColorDialog(QColor(self.colour), self)
         self.colour_dialog.currentColorChanged.connect(self._colour_picker_changed)
