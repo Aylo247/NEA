@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QPushButton, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QCheckBox, QHeaderView, 
-    QAbstractItemView, QSizePolicy, QLineEdit, QDialog
+    QAbstractItemView, QSizePolicy, QLineEdit, QDialog,
+    QStyledItemDelegate
 )
 from PyQt5.QtCore import (
     Qt, pyqtSignal
@@ -12,11 +13,38 @@ from collections import defaultdict
 from datetime import timedelta, date
 from dialogs import AddTaskDialog
 
+from PyQt5.QtWidgets import QStyledItemDelegate
+from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtGui import QPainter
+
+class VerticalHeaderDelegate(QStyledItemDelegate):
+    def paint(self, painter, option, index):
+        painter.save()
+
+        text = index.data(Qt.DisplayRole)
+
+        # Calculate the rectangle to draw the text in
+        text_rect_width = option.rect.height()  # height becomes width after rotation
+        text_rect_height = option.rect.width()  # width becomes height
+        new_rect = QRect(0, 0, text_rect_width, text_rect_height)
+
+        # Move painter to bottom-left of cell and rotate
+        painter.translate(option.rect.x(), option.rect.y() + option.rect.height())
+        painter.rotate(-90)
+
+        # Draw text centered
+        painter.drawText(new_rect, Qt.AlignCenter, text)
+
+        painter.restore()
+
+
+
 class MonthView(QWidget):
     open_settings = pyqtSignal()
     open_todo = pyqtSignal()
     open_day = pyqtSignal(object)
     back = pyqtSignal()
+    open_week = pyqtSignal(object)
 
     def __init__(self, schedule, util):
         super().__init__()
@@ -54,8 +82,8 @@ class MonthView(QWidget):
         self.next_btn.clicked.connect(lambda: self.change_month(1))
 
         # Calendar grid
-        self.calendar_table = QTableWidget(6, 7)
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        self.calendar_table = QTableWidget(6, 8)
+        days = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         self.calendar_table.setHorizontalHeaderLabels(days)
         self.calendar_table.horizontalHeader().setVisible(True)
         self.calendar_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -65,8 +93,11 @@ class MonthView(QWidget):
         self.calendar_table.setSelectionMode(QAbstractItemView.NoSelection)
         self.calendar_table.cellClicked.connect(self.on_cell_clicked)
         self.calendar_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # self.calendar_table.setShowGrid(False)
-        # self.calendar_table.setFrameShape(QFrame.NoFrame)
+        delegate = VerticalHeaderDelegate(self.calendar_table)
+        self.calendar_table.setItemDelegateForColumn(0, delegate)
+        self.calendar_table.setColumnWidth(0, 10)  # desired width
+        
+        self.calendar_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
 
         main_layout.addWidget(self.calendar_table)
 
@@ -91,12 +122,21 @@ class MonthView(QWidget):
 
         # Grid color from theme
         theme_name = getattr(self.util.settings, "theme", "light")
-        grid_color = self.util.tm.themes.get(theme_name, {}).get("calendar_grid", "#AAAAAA")
+        grid_color = self.util.tm.themes.get(theme_name, {}).get("calendar_grid", "#AAAAAA")    
 
         # Populate cells
         for week in range(6):
-            for day_col in range(7):
-                cell_date = display_start + timedelta(days=week*7 + day_col)
+            week_start = display_start + timedelta(days=week * 7)
+
+            wc_item = QTableWidgetItem(f"WC {week_start.strftime('%d/%m')}")
+            wc_item.setTextAlignment(Qt.AlignCenter)
+            wc_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            wc_item.setData(Qt.UserRole, week_start)
+
+            self.calendar_table.setItem(week, 0, wc_item)
+
+            for day_col in range(1,8):
+                cell_date = display_start + timedelta(days=week*7 + day_col-1)
                 is_current_month = (cell_date.month == self.current_month)
 
                 cell_widget = QWidget()
@@ -143,18 +183,29 @@ class MonthView(QWidget):
         self.current_year = new_year
         self.refresh_month_view()
 
+    def change_to_month(self, month, year):
+        self.current_month = month
+        self.current_year = year
+        self.refresh_month_view()
+
     def on_cell_clicked(self, row, col):
-        """Emit the date for the clicked cell, even if out-of-month."""
-        cell = self.calendar_table.cellWidget(row, col)
-        if cell:
-            day_date = cell.property("date")
-            if day_date:
-                self.open_day.emit(day_date)
+        """Emit the date for the clicked cell, for days or week-commencing cells."""
+        if col == 0:  # week-commencing column
+            item = self.calendar_table.item(row, col)
+            if item:
+                week_start = item.data(Qt.UserRole)
+                if week_start:
+                    self.open_week.emit(week_start)
+        else:  # day cells
+            cell = self.calendar_table.cellWidget(row, col)
+            if cell:
+                day_date = cell.property("date")
+                if day_date:
+                    self.open_day.emit(day_date)
 
 class ToDoListView(QWidget):
     open_settings = pyqtSignal()
     back = pyqtSignal()
-
     
     def __init__(self, schedule, util, parent=None):
         super().__init__(parent)

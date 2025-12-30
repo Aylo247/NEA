@@ -14,30 +14,44 @@ class DayViewScroll(QScrollArea):
         self.setWidgetResizable(True)
         self.setWidget(day_view)
         self.viewport().setAcceptDrops(True)
+        self.day_view = day_view
 
     def dragEnterEvent(self, event):
-        self.widget().dragEnterEvent(event)
+        if event.mimeData().hasFormat("application/x-block"):
+            event.acceptProposedAction()
+            data = eval(event.mimeData().data("application/x-block").data().decode())
+            # mark incoming block from pool or another DayView
+            self.day_view.incoming_block = data.copy()
+            self.day_view.update()
 
     def dragMoveEvent(self, event):
-        self.widget().dragMoveEvent(event)
+        self.day_view.dragMoveEvent(event)
 
     def dropEvent(self, event):
-        # Map viewport coords → DayView coords
-        mapped_pos = self.widget().mapFrom(
-            self.viewport(), event.pos()
-        )
+        if not event.mimeData().hasFormat("application/x-block"):
+            return
+
+        # Map coordinates from viewport → DayView
+        mapped_pos = self.day_view.mapFrom(self.viewport(), event.pos())
+        event._mapped_pos = mapped_pos
+
+        # Set CopyAction
         event.setDropAction(Qt.CopyAction)
         event.accept()
 
-        # Fake a new event with mapped coords
-        event._mapped_pos = mapped_pos
-        self.widget().dropEvent(event)
+        # Delegate drop to DayView
+        self.day_view.dropEvent(event)
+
+        # Clear ghost/incoming block
+        self.day_view.incoming_block = None
+
 
 class DayViewContainer(QWidget):
     open_settings = pyqtSignal()
     open_todo = pyqtSignal()
     back = pyqtSignal()
-    open_month = pyqtSignal()
+    open_month = pyqtSignal(object, object)
+    open_week = pyqtSignal(object)
     def __init__(self, schedule, utils):
         super().__init__()
 
@@ -48,7 +62,8 @@ class DayViewContainer(QWidget):
 
         # --- HEADER ---
         header_bar, buttons = utils.create_top_bar(
-            show_back=True, show_settings=True, show_todo=True, show_month=True
+            show_back=True, show_settings=True, show_todo=True, 
+            show_month=True, show_week = True
         )
         main_layout.addWidget(header_bar)
 
@@ -60,7 +75,9 @@ class DayViewContainer(QWidget):
         if "todo" in buttons:
             buttons["todo"].clicked.connect(self.open_todo.emit)
         if "month" in buttons:
-            buttons["month"].clicked.connect(self.open_month.emit)
+            buttons["month"].clicked.connect(self.open_month_view)
+        if "week" in buttons:
+            buttons["week"].clicked.connect(self.open_week_view)
 
         day_header_layout = QHBoxLayout()
         self.prev_day_btn = QPushButton("<")
@@ -109,3 +126,12 @@ class DayViewContainer(QWidget):
         if self.day_view.current_day:
             self.day_view.set_current_day(self.day_view.current_day + timedelta(days=1))
             self.update_day_label()
+
+    def open_month_view(self):
+        current_day = self.day_view.current_day
+        self.open_month.emit(current_day.month, current_day.year)
+
+    def open_week_view(self):
+        current_day = self.day_view.current_day
+        week_start = current_day - timedelta(days=current_day.weekday())
+        self.open_week.emit(week_start)

@@ -5,6 +5,7 @@ from utils import IndexStack
 from other_veiws import ToDoListView, MonthView
 from day_view_container import DayViewContainer
 from settings_view import SettingsView
+from week_view import WeekViewContainer
 
 class MainWindow(QMainWindow):
     def __init__(self, schedule, settings, persistence_manager, util):
@@ -17,6 +18,10 @@ class MainWindow(QMainWindow):
 
         self.index_stack = IndexStack()
         self.current_index = 0
+
+        # --- Minimum size ---
+        self.setMinimumSize(1200, 700)  # Workable minimum size
+
 
         # Central widget
         self.central = QWidget()
@@ -36,11 +41,13 @@ class MainWindow(QMainWindow):
         self.settings_view = SettingsView(self.settings, self.persistence, self.util)
         self.month_view = MonthView(self.schedule, self.util)
         self.day_view_container = DayViewContainer(self.schedule, self.util)
+        self.week_view_container = WeekViewContainer(self.schedule, self.util)
 
         self.stack.addWidget(self.month_view)
         self.stack.addWidget(self.settings_view)
         self.stack.addWidget(self.todo_view)
         self.stack.addWidget(self.day_view_container)
+        self.stack.addWidget(self.week_view_container)
 
         # Navigation
         self.todo_view.open_settings.connect(lambda: self.switch_to(1))
@@ -50,12 +57,23 @@ class MainWindow(QMainWindow):
         self.month_view.open_todo.connect(lambda: self.switch_to(2))
         self.month_view.open_day.connect(self.day_view_container.set_current_day)
         self.month_view.open_day.connect(lambda _: self.switch_to(3))
+        self.month_view.open_week.connect(self.week_view_container.set_current_week)
+        self.month_view.open_week.connect(lambda _: self.switch_to(4))
         self.month_view.back.connect(lambda: self.switch_back())
         self.day_view_container.back.connect(lambda: self.switch_back())
         self.day_view_container.open_settings.connect(lambda: self.switch_to(1))
         self.day_view_container.open_todo.connect(lambda: self.switch_to(2))
+        self.day_view_container.open_month.connect(self.month_view.change_to_month)
         self.day_view_container.open_month.connect(lambda: self.switch_to(0))
-
+        self.day_view_container.open_week.connect(self.week_view_container.set_current_week)
+        self.day_view_container.open_week.connect(lambda _: self.switch_to(4))
+        self.week_view_container.open_settings.connect(lambda: self.switch_to(1))
+        self.week_view_container.open_todo.connect(lambda: self.switch_to(2))
+        self.week_view_container.open_day.connect(self.day_view_container.set_current_day)
+        self.week_view_container.open_day.connect(lambda _: self.switch_to(3))
+        self.week_view_container.open_month.connect(self.month_view.change_to_month)
+        self.week_view_container.open_month.connect(lambda _: self.switch_to(0))
+        self.week_view_container.back.connect(lambda: self.switch_back())
         self.setObjectName("MainWindow")
 
         # Apply themes
@@ -83,5 +101,6 @@ class MainWindow(QMainWindow):
             widget = self.stack.currentWidget()
             if hasattr(widget, "refresh"):
                 widget.refresh()
+
 
 

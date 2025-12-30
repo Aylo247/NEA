@@ -3,25 +3,25 @@ from PyQt5.QtCore import QRect
 from datetime import datetime, timedelta, date, time
 from dialogs import AddTaskDialog, AddEventDialog
 from blocks import task, eventblock
+import pickle
 
 class DayViewMouseMixin():
     def mousePressEvent(self, event):
-        click_x = event.x()
-        click_y = event.y()
+        click_x, click_y = event.x(), event.y()
 
-        # Use the rects stored in paintEvent
         for rect, item in reversed(self.block_rects):  # topmost first
-            # triple-dot menu rect
+            # triple-dot menu
             dot_size = 20
             menu_rect = QRect(rect.right() - dot_size, rect.top(), dot_size, dot_size)
             if menu_rect.contains(click_x, click_y):
                 self.show_block_menu(item, event.globalPos())
                 return
-            
-            if getattr(item, "is_fixed", True):
-                continue  # skip fixed blocks entirely
 
-            # resize logic
+            # only tasks are draggable/resizable
+            if getattr(item, "is_fixed", True):
+                continue
+
+            # resizing logic
             if abs(click_y - rect.top()) <= 6:
                 self.resizing_block = (item, 'top')
                 return
@@ -37,12 +37,30 @@ class DayViewMouseMixin():
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("application/x-block"):
+            try:
+                data = pickle.loads(event.mimeData().data("application/x-block"))
+            except Exception:
+                return  # invalid data
+
+            # only accept tasks from pool, ignore events
+            if data.get("type") != "task":
+                return
+
             event.acceptProposedAction()
-            data = eval(event.mimeData().data("application/x-block").data().decode())
             self.incoming_block = data.copy()
-            # initialise ghost start and duration for preview
+            # initialise ghost start/duration for preview
             self.incoming_block['ghost_start'] = datetime.combine(date.today(), datetime.min.time())
-            self.incoming_block['ghost_duration'] = timedelta(minutes=data.get('duration', 60))
+            duration = self.incoming_block.get('duration', 60)
+            if not isinstance(duration, timedelta):
+                duration = timedelta(minutes=duration)
+            self.incoming_block['ghost_duration'] = duration
+            self.update()
+
+    def dragLeaveEvent(self, event):
+        # When leaving a DayView, remove the ghost preview
+        if self.incoming_block:
+            delattr(self.incoming_block, "ghost_start")
+            self.incoming_block = None
             self.update()
 
     def mouseMoveEvent(self, event):
@@ -168,7 +186,7 @@ class DayViewMouseMixin():
         event.acceptProposedAction()
 
         # Decode dragged block type
-        data = eval(event.mimeData().data("application/x-block").data().decode())
+        data = pickle.loads(event.mimeData().data("application/x-block"))
         block_type = data.get("type", "task")  # default to task
 
         # Compute start time from drop position

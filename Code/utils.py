@@ -78,11 +78,12 @@ class GUIUtils():
         
     @staticmethod
     def create_top_bar(*,
-                       show_back=False,
-                       show_settings=False,
-                       show_todo=False,
-                       show_month=False
-                       ):
+                    show_back=False,
+                    show_settings=False,
+                    show_todo=False,
+                    show_month=False,
+                    show_week=False
+                    ):
         bar = QWidget()
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(12, 12, 12, 6)
@@ -99,6 +100,10 @@ class GUIUtils():
             buttons["month"] = QPushButton("Month View")
             layout.addWidget(buttons["month"])
 
+        if show_week:
+            buttons["week"] = QPushButton("Week View")
+            layout.addWidget(buttons["week"])
+
         if show_todo:
             buttons["todo"] = QPushButton("To-Do")
             layout.addWidget(buttons["todo"])
@@ -108,6 +113,7 @@ class GUIUtils():
             layout.addWidget(buttons["settings"])
 
         return bar, buttons
+
 
 class FiveMinuteTimeEdit(QTimeEdit):
     def stepBy(self, steps: int):
