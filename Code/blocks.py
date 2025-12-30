@@ -83,51 +83,60 @@ class task(Block):
 #a class to manage custom block templates, allowing users to create, save, load, and instantiate templates
 #note that when in use, the custom block can be treated like a normal event or task block so we dont really
 #need any special methods in the logic of the schedule or when saving the schedule etc.
-class CustomBlock():
-    def __init__(self, templates = None):
+class CustomBlocks():
+    def __init__(self, templates=None):
         self.templates = templates if templates is not None else []
 
-    #adds\removes custom block templates from only the in-memory list, not the actual file, that only happens when save() is called
     def add_template(self, template):
+        """Add fixed-field template to memory."""
         self.templates.append(template)
 
     def delete_template(self, name):
+        """Remove template by name."""
         self.templates = [t for t in self.templates if t["name"] != name]
 
-    #instantiates a block from a template with optional overrides
-    def instantiate(self, template_name, **kwargs):
+    def instantiate(self, template_name, **overrides):
+        """
+        Create a block from a template.
+        Only fixed fields from template are included; editable fields come from overrides.
+        """
         template = next((t for t in self.templates if t["name"] == template_name), None)
         if not template:
             raise ValueError("Template not found")
 
+        # Merge fixed fields from template with editable overrides
         params = template.copy()
-        params.update(kwargs)
-        
-        if params.get("type") == "event":
-            name = params.get("name") 
-            start = datetime.fromisoformat(params.get("start"))
-            duration = timedelta(minutes=params.get("duration"))
+        params.update(overrides)
 
-            location = params.get("location", "")
-            notes = params.get("notes", "")
-            is_fixed = bool(params.get("is_fixed", True))
-            colour = params.get("colour", None)
-            priority = int(params.get("priority", 0))
-            repeatable = bool(params.get("repeatable", False))
-            interval = int(params.get("interval") if repeatable else 0)
-            return eventblock(name, start, duration, location, notes, is_fixed, colour, priority, repeatable, interval)
-        
+        # Ensure start/duration exist
+        start = params.get("start", datetime.now())
+        duration = params.get("duration", timedelta(minutes=params.get("duration", 60)))
+
+        if params.get("type") == "event":
+            return eventblock(
+                name=params["name"],
+                start=start,
+                duration=timedelta(minutes=duration),
+                location=params.get("location", ""),
+                notes=params.get("notes", ""),
+                is_fixed=bool(params.get("is_fixed", True)),
+                colour=params.get("colour", None),
+                priority=int(params.get("priority", 0)),
+                repeatable=bool(params.get("repeatable", False)),
+                interval=int(params.get("interval", 0))
+            )
         elif params.get("type") == "task":
-            name = params.get("name")
-            start = datetime.fromisoformat(params.get("start"))
-            duration = timedelta(minutes=params.get("duration"))
-            deadline = params.get("deadline", None)
-            location = params.get("location", "")
-            notes = params.get("notes", "")
-            is_fixed = bool(params.get("is_fixed", False))
-            colour = params.get("colour", None)
-            return task(name, start, duration, deadline, location, notes, is_fixed, colour)
-        
+            return task(
+                name=params["name"],
+                start=start,
+                duration=timedelta(minutes=duration),
+                deadline=params.get("deadline"),
+                location=params.get("location", ""),
+                notes=params.get("notes", ""),
+                is_fixed=bool(params.get("is_fixed", False)),
+                colour=params.get("colour", None)
+            )
         else:
             raise ValueError("Unknown block type")
+
     

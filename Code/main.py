@@ -1,7 +1,7 @@
 from persitencemanager import PersistenceManager
 from schedule import Schedule
 from settings import Settings, ThemeManager
-from blocks import task, eventblock
+from blocks import task, eventblock, CustomBlocks
 from main_window import MainWindow
 from datetime import datetime, timedelta
 from PyQt5.QtWidgets import QApplication
@@ -16,6 +16,9 @@ def main():
     persistence_manager = PersistenceManager()
     data = persistence_manager.load_settings()
     settings.from_dict(data)
+
+    templates = persistence_manager.load_custom_blocks()
+    customs = CustomBlocks(templates=templates)
 
     # Initialize schedule
     schedule = Schedule(settings)
@@ -184,7 +187,7 @@ def main():
     app.setStyle("Fusion")
 
     # Create main window
-    window = MainWindow(schedule, settings, persistence_manager, util)
+    window = MainWindow(schedule, settings, persistence_manager, util, customs)
     window.show()
 
     util.apply_theme()

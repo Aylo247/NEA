@@ -7,7 +7,7 @@ from day_view_menu_mixin import DayViewMenuMixin
 
 
 class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
-    def __init__(self, schedule, util, parent=None):
+    def __init__(self, schedule, util, custom_blocks, parent=None):
         super().__init__(parent)
         self.schedule = schedule
         self.util = util
@@ -15,6 +15,7 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         self.update_theme_colours()
         self.block_rects = []
         self.ghost_rects = []
+        self.custom_blocks = custom_blocks
 
         # ----- constants -----
         self.hour_height = 120

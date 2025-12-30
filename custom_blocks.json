@@ -1,13 +1,10 @@
 {
     "Templates": [
         {
+            "name": "Morning Routine",
             "type": "task",
-            "name": "Study Session",
-            "duration": 60,
-            "location": "Library",
-            "notes": "",
-            "is_fixed": false,
-            "start": "2025-12-11T14:00:00"
+            "colour": "#FFAA00",
+            "duration": 30
         }
     ]
 }

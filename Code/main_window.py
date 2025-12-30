@@ -8,12 +8,13 @@ from settings_view import SettingsView
 from week_view import WeekViewContainer
 
 class MainWindow(QMainWindow):
-    def __init__(self, schedule, settings, persistence_manager, util):
+    def __init__(self, schedule, settings, persistence_manager, util, customs):
         super().__init__()
         self.util = util
         self.schedule = schedule
         self.settings = settings
         self.persistence = persistence_manager
+        self.customs = customs
 
 
         self.index_stack = IndexStack()
@@ -40,7 +41,7 @@ class MainWindow(QMainWindow):
         self.todo_view = ToDoListView(self.schedule, self.util)
         self.settings_view = SettingsView(self.settings, self.persistence, self.util)
         self.month_view = MonthView(self.schedule, self.util)
-        self.day_view_container = DayViewContainer(self.schedule, self.util)
+        self.day_view_container = DayViewContainer(self.schedule, self.util, self.customs)
         self.week_view_container = WeekViewContainer(self.schedule, self.util)
 
         self.stack.addWidget(self.month_view)

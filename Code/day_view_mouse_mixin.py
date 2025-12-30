@@ -42,8 +42,7 @@ class DayViewMouseMixin():
             except Exception:
                 return  # invalid data
 
-            # only accept tasks from pool, ignore events
-            if data.get("type") != "task":
+            if data.get("type") not in ["task", "event"] and not self.custom_blocks:
                 return
 
             event.acceptProposedAction()
@@ -185,9 +184,8 @@ class DayViewMouseMixin():
 
         event.acceptProposedAction()
 
-        # Decode dragged block type
+        # Decode dragged block
         data = pickle.loads(event.mimeData().data("application/x-block"))
-        block_type = data.get("type", "task")  # default to task
 
         # Compute start time from drop position
         y = event.pos().y()
@@ -195,57 +193,96 @@ class DayViewMouseMixin():
         total_minutes = int((snapped_y / self.hour_height) * 60)
         default_start = datetime.combine(date.today(), datetime.min.time()) + timedelta(minutes=total_minutes)
 
-        if block_type.lower() == "task":
-            # Open task dialog with default start
-            dlg = AddTaskDialog(utils=self.util, default_start=default_start, parent=self)
+        block = None
+
+        # --- Custom block ---
+        if data.get("is_custom", False):
+            # Determine block type for dialog
+            block_type = data.get("type", "task")
+
+            # Extract the template from your custom_blocks
+            template = next((t for t in self.custom_blocks.templates if t["name"] == data["name"]), {})
+
+            # Build fixed_attrs dictionary
+            fixed_attrs = {
+                k: v
+                for k, v in template.items()
+                if k not in ["type"]
+            }
+
+            # Open dialog, passing fixed_attrs
+            if block_type == "task":
+                dlg = AddTaskDialog(utils=self.util, default_start=default_start, fixed_attrs=fixed_attrs, parent=self)
+            elif block_type == "event":
+                dlg = AddEventDialog(utils=self.util, default_start=default_start, fixed_attrs=fixed_attrs, parent=self)
+            else:
+                return
+
             if dlg.exec_() != QDialog.Accepted:
                 self.incoming_block = None
                 self.update()
                 return
-            block_data = dlg.get_data()
 
-            start = block_data["start"] or default_start
+            # Get variable user data
+            user_data = dlg.get_data()
 
-            # Create Task block
-            block = task(
-                name=block_data["name"],
-                duration=block_data["duration"],
-                start=start,
-                deadline=block_data["deadline"],
-                location=block_data["location"],
-                notes=block_data["notes"],
-                colour=block_data["colour"]
-            )
+            # Merge fixed attributes with variable data
+            merged_data = {**fixed_attrs, **user_data}
+            print( merged_data)
 
-        elif block_type.lower() == "event":
-            # Open event dialog with default start
-            dlg = AddEventDialog(utils=self.util, default_start=default_start, parent=self)
-            if dlg.exec_() != QDialog.Accepted:
-                self.incoming_block = None
-                self.update()
-                return
-            event_data = dlg.get_data()
+            # Instantiate block from template
+            block = self.custom_blocks.instantiate(data["name"], **merged_data)
 
-            # Create Event block
-            block = eventblock(
-                name=event_data["name"],
-                start=event_data["start"],  # start required in dialog
-                duration=event_data["duration"],
-                location=event_data["location"],
-                notes=event_data["notes"],
-                priority=event_data["priority"],
-                repeatable=event_data["repeatable"],
-                interval=event_data["interval"],
-                colour=event_data["colour", "#453434"]
-            )
 
-        # Add block to schedule
-        self.schedule.add_block(block)
+        # --- Default blocks ---
+        else:
+            block_type = data.get("type", "task")
+            if block_type.lower() == "task":
+                dlg = AddTaskDialog(utils=self.util, default_start=default_start, parent=self)
+                if dlg.exec_() != QDialog.Accepted:
+                    self.incoming_block = None
+                    self.update()
+                    return
+                block_data = dlg.get_data()
+                start = block_data.get("start") or default_start
+                block = task(
+                    name=block_data["name"],
+                    duration=block_data["duration"],
+                    start=start,
+                    deadline=block_data["deadline"],
+                    location=block_data["location"],
+                    notes=block_data["notes"],
+                    colour=block_data["colour"]
+                )
 
-        # Refresh DayView items and GUI
-        self.items = self.schedule.day(date.today())
-        self.incoming_block = None
-        self.update()
+            elif block_type.lower() == "event":
+                dlg = AddEventDialog(utils=self.util, default_start=default_start, parent=self)
+                if dlg.exec_() != QDialog.Accepted:
+                    self.incoming_block = None
+                    self.update()
+                    return
+                event_data = dlg.get_data()
+                block = eventblock(
+                    name=event_data["name"],
+                    start=event_data["start"],
+                    duration=event_data["duration"],
+                    location=event_data["location"],
+                    notes=event_data["notes"],
+                    priority=event_data["priority"],
+                    repeatable=event_data["repeatable"],
+                    interval=event_data["interval"],
+                    colour=event_data.get("colour", "#453434")
+                )
+
+        if block:
+            # Add to schedule
+            self.schedule.add_block(block)
+
+            # Refresh DayView
+            self.items = self.schedule.day(date.today())
+            self.incoming_block = None
+            self.update()
+
 
     def dragLeaveEvent(self, event):
         self.incoming_block = None

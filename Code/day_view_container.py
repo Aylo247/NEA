@@ -52,7 +52,7 @@ class DayViewContainer(QWidget):
     back = pyqtSignal()
     open_month = pyqtSignal(object, object)
     open_week = pyqtSignal(object)
-    def __init__(self, schedule, utils):
+    def __init__(self, schedule, utils, customs):
         super().__init__()
 
         self.setWindowTitle("DayView with Draggable Blocks")
@@ -97,15 +97,23 @@ class DayViewContainer(QWidget):
         content_layout = QHBoxLayout()  # nested layout for DayView + BlockPool
 
         # Left: DayView with scroll
-        self.day_view = DayView(schedule, utils)
+        self.day_view = DayView(schedule, utils, customs)
         scroll = DayViewScroll(self.day_view)
         scroll.setAcceptDrops(True)
         scroll.viewport().setAcceptDrops(True)
         content_layout.addWidget(scroll, 3)
 
-        # Right: BlockPool
-        self.block_pool = BlockPool(self.day_view)
-        content_layout.addWidget(self.block_pool, 1)
+        # --- Right: BlockPool + Button ---
+        right_layout = QVBoxLayout()
+        self.block_pool = BlockPool(self.day_view, customs)
+        right_layout.addWidget(self.block_pool)
+
+        # Add the "New Custom Block" button below the list
+        self.new_block_button = QPushButton("New Custom Block")
+        self.new_block_button.clicked.connect(self.block_pool.create_custom_block)
+        right_layout.addWidget(self.new_block_button)
+
+        content_layout.addLayout(right_layout)
 
         main_layout.addLayout(content_layout)  # add nested layout to main_layout
 
