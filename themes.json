@@ -22,7 +22,6 @@
     "combobox_fg": "#000000",
     "scrollbar_bg": "#E0E0E0",
     "scrollbar_fg": "#C0C0C0",
-    "checkbox_bg": "#FFFFFF",
     "checkbox_fg": "#000000",
     "default_block": "#007AFF",
     "current_time_pointer": "#FF3B30"
@@ -50,7 +49,6 @@
     "combobox_fg": "#FFFFFF",
     "scrollbar_bg": "#505053",
     "scrollbar_fg": "#3A3A3C",
-    "checkbox_bg": "#2C2C2E",
     "checkbox_fg": "#FFFFFF",
     "default_block": "#0A84FF",
     "current_time_pointer": "#FF453A"

@@ -1,186 +1,185 @@
-from datetime import datetime, timedelta
-from blocks import task, eventblock
-
-"""
-The Schedule class manages a collection of time blocks, including events and tasks.
-It provides methods to add, remove, and retrieve blocks for specific time periods,
-as well as functionality to serialize and deserialize the schedule data.
-"""
+from datetime import datetime, timedelta, date
+from typing import List, Optional, Union
+from blocks import Task, EventBlock
+from PyQt5.QtGui import QColor
 
 class Schedule:
+    """
+    manages a collection of time blocks (Tasks/EventBlocks), providing methods to
+    add, remove, retrieve blocks for specific periods, and serialize/deserialize
+    schedule data
+    """
+
     def __init__(self, settings):
         self.date = datetime.now().date()
         self.blocks = []
         self.settings = settings
 
     @property
-    def ToDoList(self):
-        tasks = []
-        for i in self.blocks:
-            if i.type == "task" and i.name not in {"breakfast", "lunch", "dinner", "break"}:
-                tasks.append(i)
-
-        return tasks
-
-    #converts the schedule and its blocks to and from a dictionary for easy JSON serialization by the PersistenceManager class
-    def to_dict(self):
-        schedule_dict = {"name": "Schedule", "blocks": []}
-
-        for block in self.blocks:
-            block_dict = {
-                "type": block.type,
-                "name": block.name,
-                "start": block.start.isoformat(),
-                "duration": block.duration.total_seconds() // 60,  # store duration in minutes
-                "location": block.location,
-                "notes": block.notes,
-                "is_fixed": block.is_fixed,
-                "colour": block.colour
-            }
-
-            if block.type == "event":
-                block_dict["priority"] = block.priority
-                block_dict["repeatable"] = block.repeatable
-                block_dict["interval"] = block.interval if block.repeatable else 0
-
-            elif block.type == "task":
-                block_dict["deadline"] = block.deadline.isoformat() if block.deadline else None
-                block_dict["is_completed"] = block.is_completed
-                block_dict["completed_at"] = block.completed_at.isoformat() if block.completed_at else None
-
-            # Add block dict to schedule
-            schedule_dict["blocks"].append(block_dict)
-
-        return schedule_dict
+    def ToDoList(self) -> List:
+        """return all tasks that are not meals/breaks"""
+        return [b for b in self.blocks if b.type == "task" and b.name.lower() not in {"breakfast", "lunch", "dinner", "break"}]
     
-    #same as above but reverses the process
-    def from_dict(self, data):
-        self.blocks = []
-        for block_data in data.get("blocks", []):
-            if block_data["type"] == "event":
-                block = eventblock(
-                    name = block_data["name"],
-                    start = datetime.fromisoformat(block_data["start"]),
-                    duration = timedelta(minutes=block_data["duration"]),
-                    location = block_data.get("location"),
-                    notes = block_data.get("notes"),
-                    is_fixed = bool(block_data.get("is_fixed", False)),
-                    colour=block_data.get("colour"),
-                    priority = int(block_data.get("priority", 0)),
-                    repeatable = bool(block_data.get("repeatable", False)),
-                    interval = int(block_data.get("interval", 0))
+    # serialization
+    def to_dict(self) -> dict:
+        """convert schedule and blocks to dictionary for JSON serialization"""
+        schedule_dict = {"name": "Schedule", "blocks": []}
+        for b in self.blocks:
+            block_dict = {
+                "type": b.type,
+                "name": b.name,
+                "start": b.start.isoformat(),
+                "duration": b.duration.total_seconds() // 60,  # store in minutes
+                "location": b.location,
+                "notes": b.notes,
+                "is_fixed": b.is_fixed,
+                "colour": b.colour.name() if b.colour else None
 
+            }
+            if b.type == "event":
+                block_dict.update({
+                    "priority": b.priority,
+                    "repeatable": b.repeatable,
+                    "interval": b.interval if b.repeatable else 0
+                })
+            elif b.type == "task":
+                block_dict.update({
+                    "deadline": b.deadline.isoformat() if b.deadline else None,
+                    "is_completed": b.is_completed,
+                    "completed_at": b.completed_at.isoformat() if b.completed_at else None
+                })
+            schedule_dict["blocks"].append(block_dict)
+        return schedule_dict
+
+    def from_dict(self, data: dict) -> None:
+        """load blocks from dictionary (inverse of to_dict)"""
+        self.blocks = []
+        for bd in data.get("blocks", []):
+            colour = QColor(bd["colour"]) if bd.get("colour") else None
+            if bd["type"] == "event":
+                b = EventBlock(
+                    name=bd["name"],
+                    start=datetime.fromisoformat(bd["start"]),
+                    duration=timedelta(minutes=bd["duration"]),
+                    location=bd.get("location"),
+                    notes=bd.get("notes"),
+                    is_fixed=bool(bd.get("is_fixed", False)),
+                    colour=colour,
+                    priority=int(bd.get("priority", 0)),
+                    repeatable=bool(bd.get("repeatable", False)),
+                    interval=int(bd.get("interval", 0))
                 )
             else:
-                block = task(
-                    name = block_data["name"],
-                    start = datetime.fromisoformat(block_data["start"]),
-                    duration = timedelta(minutes=block_data["duration"]),
-                    deadline = datetime.fromisoformat(block_data["deadline"]) if block_data.get("deadline") else None,
-                    location = block_data.get("location"),
-                    notes = block_data.get("notes"),
-                    is_fixed = bool(block_data.get("is_fixed", False)),
-                    colour=block_data.get("colour", "#453434")
+                b = Task(
+                    name=bd["name"],
+                    start=datetime.fromisoformat(bd["start"]),
+                    duration=timedelta(minutes=bd["duration"]),
+                    deadline=datetime.fromisoformat(bd["deadline"]) if bd.get("deadline") else None,
+                    location=bd.get("location"),
+                    notes=bd.get("notes"),
+                    is_fixed=bool(bd.get("is_fixed", False)),
+                    colour=colour
                 )
-                block.is_completed = block_data.get("is_completed", False)
-                if block.is_completed:
-                    block.completed_at = datetime.fromisoformat(block_data["completed_at"])
-                else: 
-                    None
-            self.blocks.append(block)
- 
-    #gets all blocks for a specific day, week or month
-    def day(self, date):
-        if isinstance(date, datetime):
-            date = date.date()
-        day_blocks = []
-        for block in self.blocks:
-            if block.start.date() == date:
-                day_blocks.append(block)
-        return day_blocks
+                b.is_completed = bd.get("is_completed", False)
+                if b.is_completed and bd.get("completed_at"):
+                    b.completed_at = datetime.fromisoformat(bd["completed_at"])
+            self.blocks.append(b)
 
-    def week(self, week_start_date):
-        while week_start_date.strftime("%A") != "Monday":
-            week_start_date -= timedelta(days=1)
+    # retrieval
+    def day(self, day_date: datetime) -> List:
+        """return all blocks on a specific day"""
+        if isinstance(day_date, datetime):
+            day_date = day_date.date()
+        return [b for b in self.blocks if b.start.date() == day_date]
 
-        week_blocks = []
-        for block in self.blocks:
-            if block.start.date() >= week_start_date and block.start.date() < week_start_date + timedelta(days=7):
-                week_blocks.append(block)
-        return week_blocks
-    
-    def month(self, month_start_date):
-        while month_start_date.strftime("%A") != "Monday":
-            month_start_date -= timedelta(days=1)
+    def week(self, week_start: datetime) -> List:
+        """return all blocks for the week starting with the given Monday"""
+        while week_start.strftime("%A") != "Monday":
+            week_start -= timedelta(days=1)
+        return [b for b in self.blocks if week_start <= b.start.date() < week_start + timedelta(days=7)]
 
-        month_blocks = []
-        for block in self.blocks:
-            if block.start.date() >= month_start_date and block.start.date() < month_start_date + timedelta(days=35):
-                month_blocks.append(block)
-        return month_blocks
-    
-    #adds\removes blocks and mark tasks as complete\incomplete
-    def add_block(self, block):
-        self.blocks.append(block)
-        if block.start is not None and block.type == "task":
-            self.global_edf_scheduler(ignore_blocks=[block])
+    def month(self, month_start: datetime) -> List:
+        """return all blocks for the 5-week period starting from the Monday of the first week"""
+        while month_start.strftime("%A") != "Monday":
+            month_start -= timedelta(days=1)
+        return [b for b in self.blocks if month_start <= b.start.date() < month_start + timedelta(days=35)]
+
+    # modifications
+    def add_block(self, b) -> None:
+        """add block and update schedule"""
+        self.blocks.append(b)
+        if b.start is not None and b.type == "task":
+            self.global_edf_scheduler(ignore_blocks=[b])
         else:
             self.global_edf_scheduler()
 
-    def clear_for_time(self, duration):
+    def remove_block(self, b) -> None:
+        """remove the real block from schedule"""
+        real_block = next(
+            (block for block in self.blocks
+            if block is b or (block.name == b.name and block.start == b.start)),
+            None
+        )
+        if real_block:
+            self.blocks.remove(real_block)
+            print(f"[DEBUG] Deleted block: {real_block.name}")
+            self.global_edf_scheduler
+        else:
+            print(f"[DEBUG] Could not find block to delete: {b.name}")
+
+    def mark_complete(self, t) -> None:
+        """mark task as complete"""
+        if t in self.blocks:
+            t.mark_complete()
+        self.global_edf_scheduler()
+
+    def mark_incomplete(self, t) -> None:
+        """mark task as incomplete"""
+        if t in self.blocks:
+            t.mark_incomplete()
+        self.global_edf_scheduler()
+
+    def clear_for_time(self, duration: Union[timedelta, str]) -> None:
+        """clear schedule for the given duration starting now"""
         now = datetime.now()
         if duration == "rest of day":
             tomorrow = now + timedelta(days=1)
-            start_time, _ = self.settings.day_bounds(tomorrow)
+            start_time, _ = self.settings.get_day_bounds(tomorrow)
         else:
             start_time = now + duration
-            _, end_time = self.settings.day_bounds(now)
+            _, end_time = self.settings.get_day_bounds(now)
             if start_time > end_time:
                 tomorrow = now + timedelta(days=1)
                 start_time, _ = self.settings.day_bounds(tomorrow)
-        self.global_edf_scheduler(start_time=start_time)
+        self.global_edf_scheduler(pointer=start_time)
 
-
-    def remove_block(self, block):
-        if block in self.blocks:
-            self.blocks.remove(block)
-        self.global_edf_scheduler()
-
-    def mark_complete(self, task):
-        if task in self.blocks:
-            task.mark_complete()
-        self.global_edf_scheduler()
-
-    def mark_incomplete(self, task):
-        if task in self.blocks:
-            task.mark_incomplete()
-        self.global_edf_scheduler()
-
-    def global_edf_scheduler(self, pointer = None, ignore_blocks = None):
+    def clear_history(self) -> None:
         """
-        Schedules a list of Block objects globally using EDF.
-        Modifies task start times and adds missing special blocks (meals/breaks).
-        
-        Args:
-            self
-            pointer: an optional datetime to start scheduling from
-            ignore_blocks: an optional list of blocks to ingnore during scheduling
-        
-        Returns:
-            List of Block objects with updated start times.
+        removes blocks from schedule.blocks that are older than
+        settings.history_duration (in days)
         """
-        SPECIAL_NAMES = {"breakfast", "lunch", "dinner", "break"}
+
+        history_days = self.settings.history_duration
+        cutoff = datetime.now() - history_days
+
+        for b in self.blocks[:]:
+            if (b.type == 'event' or b.type == 'task' and b.is_completed) and b.start < cutoff:
+                self.blocks.remove(b)
+
+
+    # scheduler
+    def global_edf_scheduler(self, pointer: Optional[datetime] = None, ignore_blocks: Optional[List] = None) -> None:
+        """schedule tasks globally using EDF, placing meals and breaks as needed"""
+        SPECIAL_NAMES = ["breakfast", "lunch", "dinner", "break"]
         BREAK_INTERVAL = self.settings.break_interval
         BREAK_DURATION = self.settings.break_duration
         MEAL_DURATION = self.settings.meal_duration
 
-
-        # Helper functions
-        def find_next_available(start_time, duration, current_schedule):
-
+        # helper functions
+        def find_next_available(start_time: datetime, duration: timedelta, current_schedule: list) -> datetime:
             """
-            Finds earliest start time >= start_time to fit a block of duration,
-            avoiding all fixed events and already scheduled tasks/specials.
+            finds earliest start time >= start_time to fit a block of duration, avoiding all fixed events 
+            and already scheduled tasks/specials
             """
 
             current = start_time
@@ -190,7 +189,7 @@ class Schedule:
                 if current < day_start:
                     current = day_start
                 if current + duration > day_end:
-                    # Move to next day start
+                    # move to next day start
                     next_day = current + timedelta(days=1)
                     next_day_start, _ = self.settings.get_day_bounds(next_day)
                     current = datetime.combine(next_day.date(), next_day_start.time())
@@ -199,7 +198,7 @@ class Schedule:
                 for b in current_schedule:
                     b_start = b.start
                     b_end = b.start + b.duration
-                    # Check overlap
+                    # check overlap
                     if current < b_end and current + duration > b_start:
                         conflict = True
                         current = b_end
@@ -208,11 +207,11 @@ class Schedule:
                 if not conflict:
                     return current
 
-        def ensure_meals_for_date(date, current_schedule):
-            """Ensure breakfast, lunch, dinner exist for the given date."""
+        def ensure_meals_for_date(date: date, current_schedule: list) -> None:
+            """ensure breakfast, lunch, dinner exist for the given date"""
 
             for meal_name in ["breakfast", "lunch", "dinner"]:
-                # Check if the meal already exists
+                # check if the meal already exists
                 exists = any(
                     b.name.lower() == meal_name and b.start.date() == date
                     for b in current_schedule
@@ -220,40 +219,40 @@ class Schedule:
                 if exists:
                     continue
 
-                # Filter blocks on that day that might conflict
+                # filter blocks on that day that might conflict
                 day_blocks = sorted(
                     [b for b in current_schedule if b.start is not None and b.start.date() == date],
                     key=lambda b: b.start
                 )
 
-                # Meal window for that meal
+                # meal window for that meal
                 meal_start_time, meal_end_time = self.settings.meal_windows[meal_name]
                 pointer = datetime.combine(date, meal_start_time)
                 meal_window_end = datetime.combine(date, meal_end_time) - MEAL_DURATION
 
-                # Try to fit the meal in the window
+                # try to fit the meal in the window
                 while pointer <= meal_window_end:
                     conflict = False
                     for b in day_blocks:
                         b_start = b.start
                         b_end = b.start + b.duration
-                        # If the meal overlaps this block, move pointer to end of block
+                        # if the meal overlaps this block, move pointer to end of block
                         if pointer < b_end and pointer + MEAL_DURATION > b_start:
                             pointer = b_end
                             conflict = True
                             break
                     if not conflict:
-                        # Place the meal
-                        meal_block = task(
+                        # place the meal
+                        meal_block = Task(
                             name=meal_name,
                             start=pointer,
                             duration=MEAL_DURATION,
                         )
                         current_schedule.append(meal_block)
                         break  # meal scheduled
-                    # Otherwise loop continues with updated pointer
+                    # otherwise loop continues with updated pointer
 
-        def meal_valid(meal_name, scheduled_blocks, pointer):
+        def meal_valid(meal_name: str, scheduled_blocks: list, pointer: datetime) -> bool:
             day_blocks = [b for b in scheduled_blocks if b.start is not None and b.start.date() == pointer.date()]
             meal_start, meal_end = self.settings.meal_windows[meal_name]
             meal_start = datetime.combine(pointer.date(), meal_start)
@@ -262,29 +261,17 @@ class Schedule:
                 return False
             return True
         
-        def break_valid(pointer, scheduled_blocks):
-            """
-            Determines if a break can be scheduled at 'pointer' on that day.
-            
-            Args:
-                pointer: datetime to check for break placement
-                scheduled_blocks: list of all scheduled blocks
-                break_duration: timedelta of the break length
-                break_interval: minimum timedelta since last break
-                settings: schedule settings for day bounds
-            
-            Returns:
-                True if a break can be scheduled at pointer, False otherwise
-            """
+        def break_valid(pointer: datetime, scheduled_blocks: list) -> bool:
+            """determines if a break can be scheduled at 'pointer' on that day"""
             day_start, day_end = self.settings.get_day_bounds(pointer)
             if pointer + BREAK_DURATION > day_end:
                 return False  # break won't fit before end of day
 
-            # Get only blocks for the same day
+            # get only blocks for the same day
             day_blocks = [b for b in scheduled_blocks if b.start.date() == pointer.date()]
             day_blocks.sort(key=lambda b: b.start)
 
-            # Check backward: has enough time passed since last break (including meals)
+            # check backward: has enough time passed since last break (including meals)
             duration_since_last_break = timedelta(0)
             for b in reversed(day_blocks):
                 if b.start >= pointer:
@@ -295,7 +282,7 @@ class Schedule:
                 if duration_since_last_break >= BREAK_INTERVAL:
                     break
 
-            # Check forward: ensure break won't overlap future blocks
+            # check forward: ensure break won't overlap future blocks
             for b in day_blocks:
                 if b.start >= pointer + BREAK_DURATION:
                     break  # no conflict with this or future blocks
@@ -305,11 +292,10 @@ class Schedule:
             return True
 
 
-
-        # Deep copy if needed to avoid mutating original list
+        # deep copy if needed to avoid mutating original list
         scheduled_blocks = self.blocks[:]
 
-        # Separate tasks, events, and special blocks
+        # separate tasks, events, and special blocks
         ignore_blocks = ignore_blocks if ignore_blocks else []
         tasks = [
             b for b in scheduled_blocks
@@ -319,7 +305,7 @@ class Schedule:
             b for b in scheduled_blocks
             if b.type == 'task' and b.is_completed and not b.name in SPECIAL_NAMES and b not in ignore_blocks
         ]
-        events = [b for b in scheduled_blocks if isinstance(b, eventblock)]
+        events = [b for b in scheduled_blocks if isinstance(b, EventBlock)]
         current_schedule = [
             e for e in events
             if not (e.repeatable and self.settings.is_holiday(e.start))
@@ -330,18 +316,19 @@ class Schedule:
                 next_start = b.start + repeat_interval
                 while next_start <= datetime.now() + timedelta(days=42):
                     if not self.settings.is_holiday(next_start):
-                        # Check if an event with the same name and start already exists
+                        # check if an event with the same name and start already exists
                         exists = any(
                             existing.name == b.name and existing.start == next_start
                             for existing in current_schedule
                         )
                         if not exists:
-                            repeated_event = eventblock(
+                            repeated_event = EventBlock(
                                 name=b.name,
                                 start=next_start,
                                 duration=b.duration,
                                 location=getattr(b, "location", None),
                                 notes=getattr(b, "notes", None),
+                                colour=b.colour(),
                                 is_fixed=b.is_fixed,
                                 priority=b.priority,
                                 repeatable=b.repeatable,
@@ -353,11 +340,11 @@ class Schedule:
         current_schedule = current_schedule + ignore_blocks
         current_schedule.sort(key=lambda b: b.start)
 
-        # Sort tasks by earliest deadline (EDF)
+        # sort tasks by earliest deadline (EDF)
         tasks.sort(key=lambda t: t.deadline)
-        # Schedule tasks
+        # schedule tasks
         meal_names = ["breakfast", "lunch", "dinner"]
-        pointer = pointer if pointer else datetime.combine(self.date, self.settings.start_time)
+        pointer = pointer if pointer else datetime.now()
         for t in tasks:
             t.start = find_next_available(pointer, t.duration, current_schedule)
             pointer = t.start + t.duration
@@ -366,7 +353,7 @@ class Schedule:
             for i in meal_names:
                 possible_start = find_next_available(pointer, MEAL_DURATION, current_schedule)
                 if meal_valid(i, current_schedule, possible_start):
-                    meal = task(
+                    meal = Task(
                         name = i,
                         start = possible_start,
                         duration = MEAL_DURATION,
@@ -380,7 +367,7 @@ class Schedule:
                 
                 possible_start = find_next_available(pointer, BREAK_DURATION, current_schedule)
                 if break_valid(possible_start, current_schedule):
-                    break_block = task(
+                    break_block = Task(
                         name = "break",
                         start = possible_start,
                         duration = BREAK_DURATION,
@@ -390,7 +377,7 @@ class Schedule:
             
         all_dates = set()
         for b in current_schedule:
-            # Use the block's start if it exists, otherwise use its deadline date
+            # use the block's start if it exists, otherwise use its deadline date
             if b.start is not None:
                 all_dates.add(b.start.date())
             elif hasattr(b, 'deadline') and b.deadline is not None:

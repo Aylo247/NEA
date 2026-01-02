@@ -7,72 +7,75 @@ from day_view_menu_mixin import DayViewMenuMixin
 
 
 class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
-    def __init__(self, schedule, util, custom_blocks, parent=None):
+    """widget showing a single day with tasks/events and current time pointer"""
+
+    def __init__(self, schedule, util, custom_blocks, parent=None) -> None:
         super().__init__(parent)
         self.schedule = schedule
         self.util = util
         self.theme = self.util.settings.theme
         self.update_theme_colours()
-        self.block_rects = []
+        self.block_rects = []  # store rects and associated items
         self.ghost_rects = []
         self.custom_blocks = custom_blocks
 
-        # ----- constants -----
+        # constants -----
         self.hour_height = 120
         self.main_line_height = 2
         self.faint_line_height = 1
         self.num_faint_lines = 3
+
+        # spacing between faint lines
         self.segment_spacing = (
             self.hour_height
             - self.main_line_height
             - (self.faint_line_height * self.num_faint_lines)
         ) / (self.num_faint_lines + 1)
 
-        self.dragging_block = None
+        # state
+        self.dragging_block = None  # currently dragged block
         self.drag_offset = 0
-        self.resizing_block = None
-        self.dragging_block = None   # for moving an existing block
-        self.incoming_block = None
+        self.resizing_block = None  # block being resized
+        self.incoming_block = None  # new block being added
 
         self.setMinimumHeight(24 * self.hour_height)
-        self.setSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding
-        )
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.set_current_day(date.today())
 
         self.setAcceptDrops(True)
         self.util.apply_theme()
         QTimer.singleShot(0, self.scroll_to_current_time)
+
         self.current_minute = datetime.now().minute
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_minute_change)
         self.timer.start(1000)  # check every second
 
-    # ---------- helpers ----------
-    def time_to_y(self, dt):
-        minutes = dt.hour * 60 + dt.minute  
+    # helpers 
+    def time_to_y(self, dt=datetime) -> int:
+        """convert a datetime to a vertical pixel position"""
+        minutes = dt.hour * 60 + dt.minute
         return int((minutes / (24 * 60)) * (24 * self.hour_height))
 
-    def snap_y(self, y):
-        """
-        Snap a y-coordinate to the nearest 15-minute interval.
-        """
-        snap_height = self.hour_height / 4  # 15 minutes per block
+    def snap_y(self, y=int) -> int:
+        """snap a y-coordinate to the nearest 15-minute interval"""
+        snap_height = self.hour_height / 4
         return round(y / snap_height) * snap_height
 
-    def set_current_day(self, date):
+    def set_current_day(self, date=datetime) -> None:
+        """set the current day and reload blocks for it"""
         self.current_day = date
-        self.load_blocks_for_day()   # update items for the day
+        self.load_blocks_for_day()
         self.update()
         QTimer.singleShot(0, self.scroll_to_current_time)
 
-    def load_blocks_for_day(self):
-        # Filter blocks from the schedule for this day
+    def load_blocks_for_day(self) -> None:
+        """load blocks from schedule for the current day"""
         self.block_rects.clear()
         self.items = self.schedule.day(self.current_day)
 
-    def draw_block(self, item, rect, painter,alpha=200):
+    def draw_block(self, item, rect, painter, alpha=200) -> None:
+        """draw a block (task/event or incoming ghost) with optional transparency"""
         # vertical triple-dot
         dot_x = rect.right() - 12
         dot_y = rect.top() + 8
@@ -83,15 +86,11 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         if isinstance(item, dict):
             color = self.col_block_default
 
-            # Determine dot colour based on block colour brightness
-            h, s, v, _ = color.getHsvF()  # get HSV values
-
-            # adjust brightness
-            if v > 0.5:
-                # block is light → make dots darker
+            # adjust dot brightness
+            h, s, v, _ = color.getHsvF()
+            if v > 0.5:  # light block
                 v = max(0, v - 0.4)
-            else:
-                # block is dark → make dots lighter
+            else:  # dark block
                 v = min(1, v + 0.4)
 
             dot_color = QColor()
@@ -104,26 +103,24 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
             painter.setBrush(color)
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(rect, 6, 6)
+
+            # block text lines
             name = item.get("name", "Block")
-            start = item.get("ghost_start") or datetime.combine(date.today(), time(0,0))
+            start = item.get("ghost_start") or datetime.combine(date.today(), time(0, 0))
             duration = item.get("ghost_duration", timedelta(minutes=60))
             lines = [
                 f"{name}",
                 f"{start.strftime('%H:%M')} - {(start + duration).strftime('%H:%M')}",
-                f"Duration: {int(duration.total_seconds() // 3600)}h {(int(duration.total_seconds() % 3600) // 60)}m"
+                f"duration: {int(duration.total_seconds() // 3600)}h {(int(duration.total_seconds() % 3600) // 60)}m"
             ]
         else:
             color = QColor(item.colour) if getattr(item, "colour", None) else self.col_block_default
 
-            # Determine dot colour based on block colour brightness
-            h, s, v, a = color.getHsvF()  # get HSV values
-
-            # adjust brightness
+            # adjust dot brightness
+            h, s, v, a = color.getHsvF()
             if v > 0.5:
-                # block is light → make dots darker
                 v = max(0, v - 0.4)
             else:
-                # block is dark → make dots lighter
                 v = min(1, v + 0.4)
 
             dot_color = QColor()
@@ -136,25 +133,27 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
             painter.setBrush(color)
             painter.setPen(Qt.NoPen)
             painter.drawRoundedRect(rect, 6, 6)
+
+            # block text lines
             lines = [
                 f"{item.name}",
                 f"{item.start.strftime('%H:%M')} - {(item.start + item.duration).strftime('%H:%M')}",
-                f"Duration: {int(item.duration.total_seconds() // 3600)}h {(int(item.duration.total_seconds() % 3600) // 60)}m"
+                f"duration: {int(item.duration.total_seconds() // 3600)}h {(int(item.duration.total_seconds() % 3600) // 60)}m"
             ]
             if getattr(item, "type", None) == "task":
                 if getattr(item, "deadline", None):
-                    lines.append(f"Deadline: {item.deadline.strftime('%d/%m/%Y %H:%M')}")
+                    lines.append(f"deadline: {item.deadline.strftime('%d/%m/%Y %H:%M')}")
             elif getattr(item, "type", None) == "event":
-                lines.append(f"Priority: {getattr(item,'priority','-')}")
-                lines.append(f"Repeat: {getattr(item,'repeat_count',0)} days")
+                lines.append(f"priority: {getattr(item,'priority','-')}")  # 0 = low, 2 = high
+                lines.append(f"repeat: {getattr(item,'repeat_count',0)} days")
                 interval = getattr(item,'interval', None)
                 if interval:
-                    lines.append(f"Interval: {interval} min")
+                    lines.append(f"interval: {interval} min")
 
             if getattr(item, "location", None):
-                lines.append(f"Loc: {item.location}")
+                lines.append(f"loc: {item.location}")
             if getattr(item, "notes", None):
-                lines.append(f"Notes: {item.notes}")
+                lines.append(f"notes: {item.notes}")
 
         # clip lines to fit rect
         text_height = rect.height() - 8
@@ -169,7 +168,8 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
             "\n".join(lines_to_draw)
         )
 
-    def update_theme_colours(self):
+    def update_theme_colours(self) -> None:
+        """update colours from theme manager"""
         tm = self.util.tm
         theme = self.util.settings.theme
         self.col_block_default = tm.get_colour(theme, "default_block")
@@ -178,8 +178,9 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         self.col_grid_dark = tm.get_colour(theme, "calendar_grid_dark")
         self.col_text = tm.get_colour(theme, "label_color")
 
-    # ---------- painting ----------
-    def paintEvent(self, event):
+    # painting
+    def paintEvent(self, event) -> None:
+        """draw grid, blocks, current time line, and ghost blocks"""
         self.block_rects.clear()
         self.ghost_rects.clear()
 
@@ -187,11 +188,11 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setFont(QFont("Arial", 12))
 
-        # === GRID ===
+        # grid
         for hour in range(24):
             y_start = int(hour * self.hour_height)
             # main line
-            painter.fillRect(50, y_start, self.width() - 50, self.main_line_height, self.col_grid_dark )
+            painter.fillRect(50, y_start, self.width() - 50, self.main_line_height, self.col_grid_dark)
 
             current_y = y_start + self.main_line_height
             for _ in range(self.num_faint_lines):
@@ -199,51 +200,51 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
                 painter.fillRect(50, int(current_y), self.width() - 50, self.faint_line_height, self.col_grid_light)
                 current_y += self.faint_line_height
 
+            # hour label
             painter.setPen(Qt.black)
             line_center = y_start + self.main_line_height / 2
             text_y = int(line_center + painter.fontMetrics().ascent() / 2)
             painter.drawText(5, text_y, f"{hour:02d}:00")
 
-        # === CURRENT TIME LINE WITH STADIUM LABEL ===
-        now = datetime.now() 
+        # current time line
+        now = datetime.now()
         if now.date() == self.current_day:
             y_now = self.time_to_y(now)
             line_color = self.col_pointer
-            line_color.setAlpha(200) 
+            line_color.setAlpha(200)  # semi-transparent
 
-            # Draw the horizontal line
+            # draw line
             painter.setPen(QPen(line_color, 2))
             painter.drawLine(50, y_now, self.width(), y_now)
 
-            # Draw the stadium/obround for the time label
+            # draw stadium/obround for time
             time_text = now.strftime("%H:%M")
             font_metrics = painter.fontMetrics()
-            text_width = font_metrics.width(time_text) + 10  # padding
+            text_width = font_metrics.width(time_text) + 10
             text_height = font_metrics.height()
 
             stadium_rect = QRect(
-                5,                        # x-position (left margin)
-                int(y_now - text_height / 2),  # center vertically on line
+                5,
+                int(y_now - text_height / 2),
                 text_width,
                 text_height
             )
 
             painter.setPen(Qt.NoPen)
             painter.setBrush(line_color)
-            painter.drawRoundedRect(stadium_rect, text_height / 2, text_height / 2)  # radius = half height for stadium
+            painter.drawRoundedRect(stadium_rect, text_height / 2, text_height / 2)
 
-            # Draw the time text inside the stadium
             painter.setPen(Qt.white)
             painter.drawText(stadium_rect, Qt.AlignCenter, time_text)
 
-        # === BLOCKS ===
+        self.items = self.schedule.day(datetime.now())
+
+        # blocks
         for item in self.items:
             if item is self.dragging_block:
                 continue  # ghost handled separately
-            
-            if hasattr(item, "is_completed"):
-                if item.is_completed:
-                    continue
+            if getattr(item, "is_completed", False):
+                continue
 
             start = item.start
             end = start + item.duration
@@ -255,13 +256,13 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
             self.draw_block(item, rect, painter)
             self.block_rects.append((rect, item))
 
-        # === GHOST BLOCK ===
+        # ghost blocks
         ghost = self.dragging_block or self.incoming_block
         if ghost:
-            if isinstance(ghost, dict):  # incoming block
+            if isinstance(ghost, dict):
                 start = ghost.get("ghost_start")
                 duration = ghost.get("ghost_duration", timedelta(minutes=60))
-            else:  # existing block
+            else:
                 start = getattr(ghost, "ghost_start", None)
                 duration = getattr(ghost, "duration", None)
 
@@ -275,11 +276,8 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
                 self.draw_block(ghost, rect, painter, alpha=120)
                 self.ghost_rects.append((rect, ghost))
 
-    def find_nearest_non_colliding(self, start_time, duration):
-        """
-        Returns the nearest start_time that does not overlap any fixed block
-        and stays within the day boundaries.
-        """
+    def find_nearest_non_colliding(self, start_time: datetime, duration: timedelta) -> datetime:
+        """return nearest start_time avoiding fixed blocks within day"""
         fixed_blocks = sorted(
             [b for _, b in self.block_rects if getattr(b, "is_fixed", False)],
             key=lambda b: b.start
@@ -290,17 +288,15 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
         day_start = datetime.combine(candidate_start.date(), time(0, 0))
         day_end = datetime.combine(candidate_start.date(), time(23, 59))
 
-        # Avoid overlapping fixed blocks
+        # push forward if overlapping
         for fb in fixed_blocks:
             fb_start = fb.start
             fb_end = fb.start + fb.duration
-
             if candidate_start < fb_end and candidate_end > fb_start:
-                # push candidate_start just after the fixed block
                 candidate_start = fb_end
                 candidate_end = candidate_start + duration
 
-        # Clamp within day boundaries
+        # clamp to day
         if candidate_start < day_start:
             candidate_start = day_start
         if candidate_end > day_end:
@@ -308,47 +304,45 @@ class DayView(QWidget, DayViewMouseMixin, DayViewMenuMixin):
 
         return candidate_start
 
-    def scroll_to_current_time(self):
-        # find scroll area parent
+    def scroll_to_current_time(self) -> None:
+        """scroll view to current time or first block of the day, or to day start"""
         scroll_area = self.parent()
         while scroll_area and not isinstance(scroll_area, QScrollArea):
             scroll_area = scroll_area.parent()
         if not scroll_area:
             return
 
-        hour_buffer = timedelta(hours=1)  # buffer for scrolling
+        hour_buffer = timedelta(hours=1)
         today = date.today()
 
         if self.current_day == today:
-            # Scroll to current time minus buffer
             now = datetime.now()
             scroll_time = now - hour_buffer
             if scroll_time.time() < time(0, 0):
                 scroll_time = datetime.combine(today, time(0, 0))
             y = self.time_to_y(scroll_time)
             scroll_area.verticalScrollBar().setValue(max(0, y))
-
         elif self.items:
-            # Scroll to first block minus buffer
             first_block = min(self.items, key=lambda b: b.start)
             scroll_time = first_block.start - hour_buffer
             if scroll_time.time() < time(0, 0):
                 scroll_time = datetime.combine(first_block.start.date(), time(0, 0))
             y = self.time_to_y(scroll_time)
             scroll_area.verticalScrollBar().setValue(max(0, y))
-
         else:
-            # No blocks, scroll to start of day plus buffer
-            scroll_time = datetime.combine(self.current_day, time(0, 0)) + hour_buffer
+            day_start, _ = self.util.get_day_bounds(self.current_day)
+            scroll_time = day_start + hour_buffer
             y = self.time_to_y(scroll_time)
             scroll_area.verticalScrollBar().setValue(max(0, y))
 
-    def check_minute_change(self):
+    def check_minute_change(self) -> None:
+        """check if the system minute has changed and update display"""
         now = datetime.now()
         if now.minute != self.current_minute:
             self.current_minute = now.minute
             self.update_current_time()
 
-    def update_current_time(self):
+    def update_current_time(self) -> None:
+        """update the current time and trigger repaint"""
         self.current_time = datetime.now()
-        self.update()  # triggers paintEvent
+        self.update()

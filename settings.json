@@ -1,11 +1,11 @@
 {
     "settings": {
-        "theme": "light",
+        "theme": "dark",
         "start_time": "07:00:00",
         "end_time": "22:00:00",
         "weekend_start": "09:00:00",
         "weekend_end": "23:00:00",
-        "notification_frequency": 30.0,
+        "notification_frequency": 10.0,
         "meal_windows": {
             "breakfast": [
                 "07:00:00",
@@ -21,9 +21,9 @@
             ]
         },
         "break_duration": 30.0,
-        "history_duration": 7.0,
         "break_interval": 90.0,
         "meal_duration": 30.0,
+        "history_duration": 7.0,
         "holiday_ranges": []
     }
 }

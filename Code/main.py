@@ -1,348 +1,62 @@
-from persitencemanager import PersistenceManager
+from persistence_manager import PersistenceManager
 from schedule import Schedule
 from settings import Settings, ThemeManager
-from blocks import task, eventblock, CustomBlocks
+from blocks import CustomBlocks
 from main_window import MainWindow
-from datetime import datetime, timedelta
-from PyQt5.QtWidgets import QApplication
 from utils import GUIUtils
+from notification_manager import NotificationManager
+
+from PyQt5.QtWidgets import QApplication
 import sys
-from datetime import date, time, timedelta, datetime
+
 
 def main():
+    # create qt application
     app = QApplication(sys.argv)
 
-    settings = Settings()
+    # load settings + persistence
     persistence_manager = PersistenceManager()
-    data = persistence_manager.load_settings()
-    settings.from_dict(data)
 
+    settings = Settings()
+    settings_data = persistence_manager.load_settings()
+    settings.from_dict(settings_data)
+
+    customs = CustomBlocks()
     templates = persistence_manager.load_custom_blocks()
-    customs = CustomBlocks(templates=templates)
+    customs.from_dict(templates)
 
-    # Initialize schedule
+    # initialise schedule
     schedule = Schedule(settings)
+    schedule_data = persistence_manager.load_data()
+    schedule.from_dict(schedule_data)
 
-
-    today = date.today()
-    blocks = []
-
-    # --- Monday ---
-    blocks.append(task(
-        name="Emails & Admin",
-        start=datetime.combine(today, time(9, 0)),
-        duration=timedelta(hours=1),
-        colour="#1E90FF",
-        deadline=datetime.combine(today, time(12, 0))
-    ))
-    blocks.append(eventblock(
-        name="Team Meeting",
-        start=datetime.combine(today, time(10, 30)),
-        duration=timedelta(hours=1),
-        colour="#32CD32",
-        priority=2
-    ))
-    blocks.append(task(
-        name="Project Work",
-        start=datetime.combine(today, time(13, 0)),
-        duration=timedelta(hours=3),
-        colour="#FFD700",
-        deadline=datetime.combine(today, time(18, 0))
-    ))
-
-    # --- Tuesday ---
-    blocks.append(task(
-        name="Coding Session",
-        start=datetime.combine(today + timedelta(days=1), time(9, 30)),
-        duration=timedelta(hours=2),
-        colour="#1E90FF",
-        deadline=datetime.combine(today + timedelta(days=1), time(12, 30))
-    ))
-    blocks.append(eventblock(
-        name="Lunch with Client",
-        start=datetime.combine(today + timedelta(days=1), time(12, 0)),
-        duration=timedelta(hours=1),
-        colour="#32CD32",
-        priority=1
-    ))
-    blocks.append(task(
-        name="Documentation",
-        start=datetime.combine(today + timedelta(days=1), time(14, 0)),
-        duration=timedelta(hours=2),
-        colour="#FFD700",
-        deadline=datetime.combine(today + timedelta(days=1), time(16, 0))
-    ))
-
-    # --- Wednesday ---
-    blocks.append(task(
-        name="Gym",
-        start=datetime.combine(today + timedelta(days=2), time(7, 0)),
-        duration=timedelta(hours=1),
-        colour="#FF4500",
-        deadline=datetime.combine(today + timedelta(days=2), time(8, 0))
-    ))
-    blocks.append(task(
-        name="Project Work",
-        start=datetime.combine(today + timedelta(days=2), time(9, 0)),
-        duration=timedelta(hours=4),
-        colour="#1E90FF",
-        deadline=datetime.combine(today + timedelta(days=2), time(17, 0))
-    ))
-    blocks.append(eventblock(
-        name="Team Sync",
-        start=datetime.combine(today + timedelta(days=2), time(15, 0)),
-        duration=timedelta(hours=1),
-        colour="#32CD32",
-        priority=2
-    ))
-
-    # --- Thursday ---
-    blocks.append(task(
-        name="Emails & Admin",
-        start=datetime.combine(today + timedelta(days=3), time(8, 0)),
-        duration=timedelta(hours=1),
-        colour="#1E90FF",
-        deadline=datetime.combine(today + timedelta(days=3), time(10, 0))
-    ))
-    blocks.append(eventblock(
-        name="Doctor Appointment",
-        start=datetime.combine(today + timedelta(days=3), time(10, 30)),
-        duration=timedelta(hours=1),
-        colour="#FF6347",
-        priority=2
-    ))
-    blocks.append(task(
-        name="Research",
-        start=datetime.combine(today + timedelta(days=3), time(11, 30)),
-        duration=timedelta(hours=3),
-        colour="#FFD700",
-        deadline=datetime.combine(today + timedelta(days=3), time(17, 0))
-    ))
-
-    # --- Friday ---
-    blocks.append(task(
-        name="Team Retrospective",
-        start=datetime.combine(today + timedelta(days=4), time(9, 0)),
-        duration=timedelta(hours=1),
-        colour="#32CD32",
-        deadline=datetime.combine(today + timedelta(days=4), time(10, 0))
-    ))
-    blocks.append(task(
-        name="Coding Session",
-        start=datetime.combine(today + timedelta(days=4), time(10, 30)),
-        duration=timedelta(hours=2),
-        colour="#1E90FF",
-        deadline=datetime.combine(today + timedelta(days=4), time(12, 30))
-    ))
-    blocks.append(eventblock(
-        name="Client Call",
-        start=datetime.combine(today + timedelta(days=4), time(14, 0)),
-        duration=timedelta(hours=1),
-        colour="#32CD32",
-        priority=1
-    ))
-
-    # --- Saturday ---
-    blocks.append(task(
-        name="Weekend Chores",
-        start=datetime.combine(today + timedelta(days=5), time(9, 0)),
-        duration=timedelta(hours=2),
-        colour="#FFA500",
-        deadline=datetime.combine(today + timedelta(days=5), time(11, 0))
-    ))
-    blocks.append(task(
-        name="Personal Project",
-        start=datetime.combine(today + timedelta(days=5), time(11, 30)),
-        duration=timedelta(hours=3),
-        colour="#FFD700",
-        deadline=datetime.combine(today + timedelta(days=5), time(15, 0))
-    ))
-
-    # --- Sunday ---
-    blocks.append(task(
-        name="Relax & Reading",
-        start=datetime.combine(today + timedelta(days=6), time(10, 0)),
-        duration=timedelta(hours=3),
-        colour="#87CEFA",
-        deadline=datetime.combine(today + timedelta(days=6), time(13, 0))
-    ))
-    blocks.append(eventblock(
-        name="Family Dinner",
-        start=datetime.combine(today + timedelta(days=6), time(18, 0)),
-        duration=timedelta(hours=2),
-        colour="#FF6347",
-        priority=1
-    ))
-
-
-    for block in blocks:
-            schedule.add_block(block)
-
-
-
-    # Initialize settings and persistence
-    thememanager = ThemeManager()  # use your real persistence
-    util = GUIUtils(thememanager, settings)
+    # gui setup
+    theme_manager = ThemeManager()
+    gui_utils = GUIUtils(theme_manager, settings)
 
     app.setStyle("Fusion")
 
-    # Create main window
-    window = MainWindow(schedule, settings, persistence_manager, util, customs)
+    window = MainWindow(
+        schedule,
+        settings,
+        persistence_manager,
+        gui_utils,
+        customs
+    )
     window.show()
+    
+    notification_manager = NotificationManager(
+                                schedule=schedule,
+                                settings=settings,
+                                utils=gui_utils,
+                                parent=window
+                            )
 
-    util.apply_theme()
+    gui_utils.apply_theme()
 
+    # start qt event loop
     sys.exit(app.exec_())
 
+
 if __name__ == "__main__":
-    main() 
-
-# from datetime import datetime, timedelta
-# from blocks import task, event
-# from schedule import Schedule
-# from settings import Settings
-# from collections import Counter
-
-# # --- Initialize settings ---
-# settings = Settings()
-# sched = Schedule(settings)
-
-# # --- Add fixed events (2 weeks) ---
-# fixed_events = [
-#     ("Doctor Appointment", datetime(2025, 12, 23, 10, 0), 60, 2),
-#     ("Math Class", datetime(2025, 12, 23, 13, 0), 90, 1),
-#     ("Client Meeting", datetime(2025, 12, 23, 15, 0), 45, 2),
-#     ("Workshop", datetime(2025, 12, 24, 10, 0), 90, 1),
-#     ("Gym", datetime(2025, 12, 24, 16, 0), 60, 1),
-#     ("Concert", datetime(2025, 12, 24, 19, 30), 120, 1),
-#     ("Doctor Follow-up", datetime(2025, 12, 25, 9, 30), 30, 2),
-#     ("Team Meeting", datetime(2025, 12, 25, 11, 0), 60, 1),
-#     ("Lunch with Friend", datetime(2025, 12, 25, 13, 0), 60, 1),
-#     ("Team Call", datetime(2025, 12, 25, 17, 0), 60, 1),
-#     ("Project Presentation", datetime(2025, 12, 26, 14, 0), 60, 1),
-#     ("Workshop", datetime(2025, 12, 27, 10, 0), 120, 1),
-#     ("Gym", datetime(2025, 12, 28, 16, 0), 60, 1),
-#     ("Client Meeting", datetime(2025, 12, 29, 15, 0), 45, 2),
-#     ("Seminar", datetime(2025, 12, 30, 11, 0), 90, 1),
-#     ("Concert", datetime(2025, 12, 31, 19, 0), 120, 1),
-#     ("Doctor Appointment", datetime(2026, 1, 2, 9, 30), 30, 2),
-#     ("Team Meeting", datetime(2026, 1, 3, 11, 0), 60, 1),
-#     ("Workshop", datetime(2026, 1, 4, 10, 0), 120, 1),
-#     ("Gym", datetime(2026, 1, 5, 16, 0), 60, 1)
-# ]
-
-# for name, start, duration_min, priority in fixed_events:
-#     sched.add_block(event(name, start, timedelta(minutes=duration_min), is_fixed=True, priority=priority))
-
-# team_sync = event(
-#     name="Weekly Team Sync",
-#     start=datetime(2025, 12, 24, 9, 0),
-#     duration=timedelta(minutes=60),
-#     location="Office",
-#     notes="Recurring weekly team meeting",
-#     is_fixed=True,
-#     priority=1,
-#     repeatable=True,
-#     interval=7
-# )
-
-# project_review = event(
-#     name="Bi-weekly Project Review",
-#     start=datetime(2025, 12, 25, 14, 0),
-#     duration=timedelta(minutes=90),
-#     location="Zoom",
-#     notes="Check progress and milestones",
-#     is_fixed=True,
-#     priority=2,
-#     repeatable=True,
-#     interval=14
-# )
-
-# sched.add_block(team_sync)
-# sched.add_block(project_review)
-
-# # --- Add flexible tasks (2 weeks) ---
-# flexible_tasks = [
-#     ("Draft Proposal", datetime(2025, 12, 23, 18, 30), 60),
-#     ("Organize Files", datetime(2025, 12, 23, 20, 0), 45),
-#     ("Study Physics", datetime(2025, 12, 24, 12, 30), 90),
-#     ("Update Portfolio", datetime(2025, 12, 24, 15, 30), 60),
-#     ("Bake Cookies", datetime(2025, 12, 25, 10, 30), 45),
-#     ("Clean Garage", datetime(2025, 12, 25, 14, 30), 60),
-#     ("Write Journal", datetime(2025, 12, 25, 19, 30), 30),
-#     ("Research Topic", datetime(2025, 12, 26, 12, 0), 90),
-#     ("Prepare Slides", datetime(2025, 12, 26, 16, 0), 60),
-#     ("Draft Email Campaign", datetime(2025, 12, 27, 14, 0), 45),
-#     ("Study Chemistry", datetime(2025, 12, 28, 12, 0), 60),
-#     ("Update CV", datetime(2025, 12, 28, 18, 0), 45),
-#     ("Clean Room", datetime(2025, 12, 29, 14, 0), 60),
-#     ("Write Blog Post", datetime(2025, 12, 29, 18, 0), 90),
-#     ("Organize Photos", datetime(2025, 12, 30, 15, 0), 60),
-#     ("Study Maths", datetime(2025, 12, 31, 12, 0), 90),
-#     ("Plan Trip", datetime(2026, 1, 1, 10, 0), 120),
-#     ("Write Proposal", datetime(2026, 1, 2, 16, 0), 60),
-#     ("Review Notes", datetime(2026, 1, 3, 14, 0), 45),
-#     ("Update Portfolio", datetime(2026, 1, 4, 18, 0), 60),
-#     ("Draft Report", datetime(2026, 1, 5, 12, 0), 90)
-# ]
-
-# for name, deadline, duration_min in flexible_tasks:
-#     sched.add_block(task(name=name, start=None, duration=timedelta(minutes=duration_min), deadline=deadline))
-
-# # --- Run initial EDF scheduler ---
-# sched.global_edf_scheduler()
-
-# # --- Print full detailed schedule ---
-# print("\n=== Full Schedule Detailed View ===")
-# for block in sorted(sched.blocks, key=lambda b: b.start):
-#     start_str = block.start.strftime("%Y-%m-%d %H:%M") if block.start else "N/A"
-#     end_str = (block.start + block.duration).strftime("%H:%M") if block.start else "N/A"
-#     deadline = getattr(block, "deadline", None)
-#     deadline_str = deadline.strftime("%Y-%m-%d %H:%M") if deadline else "N/A"
-#     status = "(Completed)" if getattr(block, "is_completed", False) else ""
-#     print(f"{start_str} - {end_str} | Deadline: {deadline_str} | {block.name} {status}")
-
-# # --- Meals / Breaks summary per day ---
-# meal_names = ["breakfast", "lunch", "dinner"]
-# for date in sorted({b.start.date() for b in sched.blocks if b.start}):
-#     meals_today = [b.name.lower() for b in sched.blocks if b.start.date() == date and b.name.lower() in meal_names]
-#     breaks_today = [b for b in sched.blocks if b.start.date() == date and b.name.lower() == "break"]
-#     print(f"\n{date} -> Meals: {Counter(meals_today)}, Breaks: {len(breaks_today)}")
-
-# # --- Mark some tasks as completed ---
-# completed_task_names = ["Draft Proposal", "Organize Files", "Bake Cookies", "Clean Garage"]
-# for b in sched.blocks:
-#     if isinstance(b, task) and b.name in completed_task_names:
-#         sched.mark_complete(b)
-
-# # --- Add new tasks ---
-# new_tasks = [
-#     ("Prepare Presentation Slides", datetime(2025, 12, 26, 18, 0), 60),
-#     ("Call Client", datetime(2025, 12, 27, 16, 0), 30),
-#     ("Buy Groceries", datetime(2025, 12, 28, 10, 0), 45),
-#     ("Practice Piano", datetime(2025, 12, 29, 17, 0), 45),
-#     ("Write Weekly Report", datetime(2026, 1, 2, 14, 0), 90)
-# ]
-
-# for name, deadline, duration_min in new_tasks:
-#     sched.add_block(task(name=name, start=None, duration=timedelta(minutes=duration_min), deadline=deadline))
-
-# # --- Run EDF scheduler again ---
-# sched.global_edf_scheduler()
-
-# # --- Print full detailed schedule ---
-# print("\n=== Full Schedule Detailed View ===")
-# for block in sorted(sched.blocks, key=lambda b: b.start):
-#     start_str = block.start.strftime("%Y-%m-%d %H:%M") if block.start else "N/A"
-#     end_str = (block.start + block.duration).strftime("%H:%M") if block.start else "N/A"
-#     deadline = getattr(block, "deadline", None)
-#     deadline_str = deadline.strftime("%Y-%m-%d %H:%M") if deadline else "N/A"
-#     status = "(Completed)" if getattr(block, "is_completed", False) else ""
-#     print(f"{start_str} - {end_str} | Deadline: {deadline_str} | {block.name} {status}")
-
-# # --- Meals / Breaks summary per day ---
-# meal_names = ["breakfast", "lunch", "dinner"]
-# for date in sorted({b.start.date() for b in sched.blocks if b.start}):
-#     meals_today = [b.name.lower() for b in sched.blocks if b.start.date() == date and b.name.lower() in meal_names]
-#     breaks_today = [b for b in sched.blocks if b.start.date() == date and b.name.lower() == "break"]
-#     print(f"\n{date} -> Meals: {Counter(meals_today)}, Breaks: {len(breaks_today)}")
+    main()

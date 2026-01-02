@@ -1,142 +1,150 @@
 from datetime import datetime, timedelta
-
-"""
-This module defines the core classes for managing time blocks in a scheduling application.
-It includes a base Block class and specialized Event and Task classes, as well as a 
-CustomBlock class for handling user-defined block templates.
-"""
+from typing import Optional, Union
+from PyQt5.QtGui import QColor
 
 
-#the base block class that other block types inherit from
-class Block(): 
+class Block:
+    """base class for all time blocks"""
+    
     def __init__(
-            self,
-            name, 
-            start, 
-            duration, 
-            location = None, 
-            notes = None , 
-            is_fixed = False,
-            colour = None
-            ):
-        self.name = name  #e.g., "Doctor Appointment", "Study Session"
-        self.start = start #datetime object
-        self.duration = duration #timedelta object
-        self.location = location #e.g., "Room 101", "Downtown Clinic"
-        self.notes = notes #additional details
-        self.is_fixed = is_fixed #True if the block cannot be moved or resized
-        self.colour = colour #hex colour code for UI representation
+        self,
+        name: str,
+        start: datetime,
+        duration: timedelta,
+        location: Optional[str] = None,
+        notes: Optional[str] = None,
+        is_fixed: bool = False,
+        colour: Optional[QColor] = None 
+    ) -> None:
+        self.name = name
+        self.start = start
+        self.duration = duration
+        self.location = location
+        self.notes = notes
+        self.is_fixed = is_fixed
+        self.colour = colour
 
     @property
-    def end(self):
-        return self.duration + self.start #datetime object
+    def end(self) -> datetime:
+        """return the end datetime of the block"""
+        return self.start + self.duration
 
-#the event block that is fixed and cannot be moved
-class eventblock(Block):
 
-    def __init__(self, 
-                name, 
-                start, 
-                duration, 
-                location = "", 
-                notes = "" , 
-                is_fixed = True,
-                colour = None, 
-                priority = 0, 
-                repeatable = False, 
-                interval = 0):
+class EventBlock(Block):
+    """fixed, non-movable block representing scheduled events"""
+
+    def __init__(
+        self,
+        name: str,
+        start: datetime,
+        duration: timedelta,
+        location: str = "",
+        notes: str = "",
+        is_fixed: bool = True,
+        colour: Optional[QColor] = None,
+        priority: int = 0,
+        repeatable: bool = False,
+        interval: int = 0
+    ) -> None:
         super().__init__(name, start, duration, location, notes, is_fixed, colour)
-        self.priority = priority #0 for lowest and 2 for highest, for exambple a doctor appointment would be 2 but a lesson would be 1
+        self.priority = priority  # 0 = low, 2 = high
         self.repeatable = repeatable
-        self.type = "event"
         self.interval = interval
+        self.type = "event"
 
-#the task block that is movable and can be marked complete or incomplete
-class task(Block):
-    def __init__(self, 
-                 name,
-                 start, 
-                 duration, 
-                 deadline=None, 
-                 location = "", 
-                 notes = "" , 
-                 is_fixed = False,
-                 colour = None):
+
+class Task(Block):
+    """movable block representing a task that can be completed"""
+
+    def __init__(
+        self,
+        name: str,
+        start: datetime,
+        duration: timedelta,
+        deadline: Optional[datetime] = None,
+        location: str = "",
+        notes: str = "",
+        is_fixed: bool = False,
+        colour: Optional[QColor] = None
+    ) -> None:
         super().__init__(name, start, duration, location, notes, is_fixed, colour)
         self.deadline = deadline
         self.is_completed = False
         self.completed_at = None
         self.type = "task"
 
-    def mark_complete(self):
-        if self.is_completed:
-            return
-        self.is_completed = True
-        self.completed_at = datetime.now() #for historical purposes
-
-    def mark_incomplete(self):
+    def mark_complete(self) -> None:
+        """mark the task as completed and timestamp it"""
         if not self.is_completed:
-            return
-        self.is_completed = False
-        self.completed_at = None
+            self.is_completed = True
+            self.completed_at = datetime.now()
 
-#a class to manage custom block templates, allowing users to create, save, load, and instantiate templates
-#note that when in use, the custom block can be treated like a normal event or task block so we dont really
-#need any special methods in the logic of the schedule or when saving the schedule etc.
-class CustomBlocks():
-    def __init__(self, templates=None):
-        self.templates = templates if templates is not None else []
+    def mark_incomplete(self) -> None:
+        """revert the task to incomplete and clear the timestamp"""
+        if self.is_completed:
+            self.is_completed = False
+            self.completed_at = None
 
-    def add_template(self, template):
-        """Add fixed-field template to memory."""
+
+class CustomBlocks:
+    """manage user-defined block templates for tasks and events"""
+
+    def __init__(self, templates=None) -> None:
+        self.templates = templates or []
+
+    def add_template(self, template) -> None:
+        """add a template to memory"""
         self.templates.append(template)
 
-    def delete_template(self, name):
-        """Remove template by name."""
+    def delete_template(self, name) -> None:
+        """remove a template by name"""
         self.templates = [t for t in self.templates if t["name"] != name]
 
-    def instantiate(self, template_name, **overrides):
+    def instantiate(self, template_name, **overrides) -> Union[Task, EventBlock]:
         """
-        Create a block from a template.
-        Only fixed fields from template are included; editable fields come from overrides.
+        create a Block from a template, applying any overrides
+        returns EventBlock or Task depending on the type
         """
         template = next((t for t in self.templates if t["name"] == template_name), None)
         if not template:
-            raise ValueError("Template not found")
+            raise ValueError(f"Template '{template_name}' not found")
 
-        # Merge fixed fields from template with editable overrides
-        params = template.copy()
-        params.update(overrides)
-
-        # Ensure start/duration exist
+        params = {**template, **overrides}
         start = params.get("start", datetime.now())
-        duration = params.get("duration", timedelta(minutes=params.get("duration", 60)))
+        duration_value = params.get("duration", 60)
+        duration = duration_value if isinstance(duration_value, timedelta) else timedelta(minutes=duration_value)
 
         if params.get("type") == "event":
-            return eventblock(
+            return EventBlock(
                 name=params["name"],
                 start=start,
-                duration=timedelta(minutes=duration),
+                duration=duration,
                 location=params.get("location", ""),
                 notes=params.get("notes", ""),
-                is_fixed=bool(params.get("is_fixed", True)),
-                colour=params.get("colour", None),
-                priority=int(params.get("priority", 0)),
-                repeatable=bool(params.get("repeatable", False)),
-                interval=int(params.get("interval", 0))
+                is_fixed=params.get("is_fixed", True),
+                colour=params.get("colour"),
+                priority=params.get("priority", 0),
+                repeatable=params.get("repeatable", False),
+                interval=params.get("interval", 0),
             )
         elif params.get("type") == "task":
-            return task(
+            return Task(
                 name=params["name"],
                 start=start,
-                duration=timedelta(minutes=duration),
+                duration=duration,
                 deadline=params.get("deadline"),
                 location=params.get("location", ""),
                 notes=params.get("notes", ""),
-                is_fixed=bool(params.get("is_fixed", False)),
-                colour=params.get("colour", None)
+                is_fixed=params.get("is_fixed", False),
+                colour=params.get("colour"),
             )
         else:
-            raise ValueError("Unknown block type")
+            raise ValueError(f"unknown block type '{params.get('type')}'")
+        
+    def to_dict(self) -> dict:
+        """serialize to dictionary"""
+        return {"templates": self.templates}
 
-    
+    def from_dict(self, data: dict) -> None:
+        """load templates from dictionary"""
+        self.templates = data["templates"]
