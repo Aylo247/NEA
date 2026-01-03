@@ -1,9 +1,10 @@
+from  abc import ABC
 from datetime import datetime, timedelta
 from typing import Optional, Union
 from PyQt5.QtGui import QColor
 
 
-class Block:
+class Block(ABC):
     """base class for all time blocks"""
     
     def __init__(

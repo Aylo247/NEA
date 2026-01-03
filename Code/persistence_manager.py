@@ -1,6 +1,6 @@
 import json
 from typing import List, Optional, Dict, Any
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 import os
 
 class PersistenceManager:
@@ -47,10 +47,10 @@ class PersistenceManager:
                 encrypted = f.read()
                 decrypted = self._decrypt(encrypted)   # already a dict/list
                 return decrypted.get("Templates")                       # no json.loads needed
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, InvalidToken):
             return []
 
-    def save_custom_blocks(self, custom_blocks: Optional[list]) -> None:
+    def save_custom_blocks(self, custom_blocks) -> None:
         """
         save encrypted custom block templates to JSON file
         if custom_blocks is None, does nothing
@@ -86,7 +86,7 @@ class PersistenceManager:
             with open(self.settings_file, 'r') as f:
                 data = json.load(f)
                 return data.get('settings', {})
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, InvalidToken):
             return {}
 
 
@@ -110,7 +110,7 @@ class PersistenceManager:
             with open(self.data_file, "rb") as f:
                 encrypted = f.read()
                 return self._decrypt(encrypted)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except (FileNotFoundError, InvalidToken):
             return {}
  
     # Convenience Method 

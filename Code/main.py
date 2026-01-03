@@ -1,6 +1,7 @@
 from persistence_manager import PersistenceManager
 from schedule import Schedule
-from settings import Settings, ThemeManager
+from settings import Settings
+from theme_manager import ThemeManager
 from blocks import CustomBlocks
 from main_window import MainWindow
 from utils import GUIUtils

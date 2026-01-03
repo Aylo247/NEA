@@ -465,5 +465,5 @@ class SettingsView(QWidget):
     # theme change
     def on_theme_changed(self, text):
         self._temp_state["theme"] = text
-        self.util.apply_theme()
+        self.util.apply_theme(theme=self._temp_state["theme"])
         self._update_save_state()

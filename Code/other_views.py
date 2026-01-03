@@ -140,14 +140,6 @@ class MonthView(QWidget):
                 cell_layout.setContentsMargins(4, 4, 4, 4)
                 cell_layout.setSpacing(1)
 
-                # --- today highlight by nudging existing colour ---
-                if is_today:
-                    base = self.effective_bg(cell_widget)
-                    highlight = self.nudge_colour(base, 450)
-
-                    cell_widget.setStyleSheet(
-                        f"background-color: {highlight.name()}; border-radius: 6px;"
-                    )
 
                 # --- day number ---
                 day_label = QLabel(str(cell_date.day))
@@ -221,28 +213,6 @@ class MonthView(QWidget):
                 if day_date:
                     self.open_day.emit(day_date)
 
-    def is_light_colour(self, c: QColor) -> bool:
-        # perceived brightness
-        return (0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()) > 186
-
-    def nudge_colour(self, c: QColor, amount: int = 110) -> QColor:
-        """
-        If base is light -> make it a bit darker
-        If base is dark  -> make it a bit lighter
-        amount > 100 = more change
-        """
-        return c.darker(amount) if self.is_light_colour(c) else c.lighter(amount)
-
-    def effective_bg(self, widget) -> QColor:
-        """
-        Try to get a reasonable background colour even under QSS.
-        """
-        c = widget.palette().color(QPalette.Window)
-        if not c.isValid():
-            c = self.calendar_table.palette().color(QPalette.Base)
-        if not c.isValid():
-            c = self.palette().color(QPalette.Window)
-        return c
 
 class ToDoListView(QWidget):
     """view for displaying and managing the to-do list, including completed history"""
