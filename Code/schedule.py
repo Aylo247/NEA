@@ -148,7 +148,7 @@ class Schedule:
         if real_block:
             self.blocks.remove(real_block)
             print(f"[DEBUG] Deleted block: {real_block.name}")
-            self.global_edf_scheduler
+            self.global_edf_scheduler()
         else:
             print(f"[DEBUG] Could not find block to delete: {b.name}")
 
